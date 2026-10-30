@@ -1,0 +1,102 @@
+{
+"Battlefield Dominance": {
+"pair": "take-and-hold|take-and-hold",
+"text": "Mirror T&H. Rounds 1-2: majority of objectives at the end of turn. Round 2+: score per objective controlled at the end of Command phase, bonus for central objective."
+},
+"Determined Acquisition": {
+"pair": "take-and-hold|disruption",
+"text": "T&H vs Disruption. Score for each newly-seized objective every turn, then per objective controlled at the end of Command phase with a bonus in enemy territory."
+},
+"Immovable Object": {
+"pair": "take-and-hold|purge-the-foe",
+"text": "T&H vs Purge. Holding the central objective pays every turn. Rounds 2-4: per objective controlled at the end of Command phase. Round 5: switches to end of turn."
+},
+"Inescapable Dominion": {
+"pair": "take-and-hold|priority-assets",
+"text": "T&H vs Priority Assets. Holding 3+ objectives scores every turn. Round 2+: holding 2+ is the baseline, beating your opponent adds a bonus."
+},
+"Purge and Secure": {
+"pair": "take-and-hold|reconnaissance",
+"text": "T&H vs Recon. Killing while on an objective scores. Round 2+: per objective controlled at the end of Command phase plus a bonus for seizing a new objective."
+},
+"Death Trap": {
+"pair": "disruption|take-and-hold",
+"text": "Disruption vs T&H. Trapping terrain outside your zone scores, bonus if it's an objective. Killing in trapped terrain scores separately. Round 2+: hold outside home."
+},
+"Outmanoeuvre": {
+"pair": "disruption|disruption",
+"text": "Mirror Disruption. Early: per objective at end of turn. Mid: end of Command phase (bigger). Final rounds: back to end of turn at maximum. Opponent's home = 10 VP."
+},
+"Delaying Action": {
+"pair": "disruption|purge-the-foe",
+"text": "Disruption vs Purge. Score per enemy unit destroyed. Round 2+: hold outside home at the end of Command phase, bonus for covering both central and expansion objectives."
+},
+"Locate and Deny": {
+"pair": "disruption|priority-assets",
+"text": "Disruption vs Priority Assets. Mark 5 terrain areas. Your opponent removes the markers. Score for destroying in marked terrain, for holding the last marked one. Round 2+: hold outside home."
+},
+"Smoke and Mirrors": {
+"pair": "disruption|reconnaissance",
+"text": "Disruption vs Recon. Actions on non-home objectives to Decoy them. Score per Decoyed objective, bonus in enemy territory. End: big bonus if 4+ are still Decoyed."
+},
+"Unstoppable Force": {
+"pair": "purge-the-foe|take-and-hold",
+"text": "Purge vs T&H. Killing scores every turn. Round 2+: per objective controlled at the end of Command phase, bonus for seizing a new objective. End: central objective bonus."
+},
+"Punishment": {
+"pair": "purge-the-foe|disruption",
+"text": "Purge vs Disruption. Designate Condemned units. Destroying them scores at the end of turn. Round 2+: hold outside home with a majority bonus. End: seize the opponent's home."
+},
+"Meatgrinder": {
+"pair": "purge-the-foe|purge-the-foe",
+"text": "Mirror Purge. Killing scores every turn. Round 2+: non-home objective at the end of Command phase, beating the opponent's kill count adds a bonus, holding the opponent's home scores every turn."
+},
+"Destroyer's Wrath": {
+"pair": "purge-the-foe|priority-assets",
+"text": "Purge vs Priority Assets. Score per unit destroyed every turn. Round 2+: control outside home plus a majority bonus, rewarded for beating the opponent's kill count."
+},
+"Consecrate": {
+"pair": "purge-the-foe|reconnaissance",
+"text": "Purge vs Recon. Killing on a non-home objective Consecrates it. Scores in tiers (1-2 or 3+ Consecrated). Round 2+: standard control in parallel. End: opponent's home Consecrated."
+},
+"Secure Asset": {
+"pair": "priority-assets|take-and-hold",
+"text": "Priority Assets vs T&H. Actions on non-home objectives AND kills in no man's land both score. Round 2+: per objective held at the end of Command phase, large-board bonus (3+)."
+},
+"Extract Relic": {
+"pair": "priority-assets|disruption",
+"text": "Priority Assets vs Disruption. Actions on central objectives to un-mark them. One action per turn scores. Round 2+: control outside home. End: hold the last marked one."
+},
+"Vital Link": {
+"pair": "priority-assets|purge-the-foe",
+"text": "Priority Assets vs Purge. Holding central objectives scores, bonus if an action was performed on them. Round 2+: any objective outside home, bonus if central. End: opponent's home."
+},
+"Sabotage": {
+"pair": "priority-assets|priority-assets",
+"text": "Mirror Priority Assets. Sabotaging non-home objectives scores, bonus in enemy territory. Round 2+: standard control outside home completes the scoring."
+},
+"Vanguard Operation": {
+"pair": "priority-assets|reconnaissance",
+"text": "Priority Assets vs Recon. Actions in enemy territory for a Vanguard Operation, bonus for killing that same turn. Round 2+: control outside home. End: opponent's home objective."
+},
+"Reconnaissance Sweep": {
+"pair": "reconnaissance|take-and-hold",
+"text": "Recon vs T&H. 3 quarters = 3 VP, 4 quarters = 6 VP (only the highest counts). No Prisoners: VP per unit destroyed. Round 2+: objective control at the end of Command phase."
+},
+"Surveil the Foe": {
+"pair": "reconnaissance|disruption",
+"text": "Recon vs Disruption. Spot enemy units within 18\". Score for units Spotted on non-Decoyed objectives, control outside home from round 2+ with a majority bonus."
+},
+"Triangulation": {
+"pair": "reconnaissance|purge-the-foe",
+"text": "Recon vs Purge. Round 2+: one action per turn to Triangulate an objective. Scores in tiers (1, 2, 3+ - only the highest counts). Standard control in parallel. End: 4+ objectives."
+},
+"Search and Scour": {
+"pair": "reconnaissance|priority-assets",
+"text": "Recon vs Priority Assets. Holding a central objective AND killing from a terrain area both score. Round 2+: control outside home. End: no enemy unit in your territory."
+},
+"Gather Intel": {
+"pair": "reconnaissance|reconnaissance",
+"text": "Mirror Recon. Round 1: central objective. Round 2+: control outside home plus a reward scaled by actions performed. End: 3+ Marked and opponent's home Marked."
+}
+}
