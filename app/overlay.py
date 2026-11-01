@@ -707,7 +707,7 @@ class Overlay:
         self.root.destroy()
 
     def _consent_dialog(self):
-        """Premier lancement : demande séparée, jamais liée à l'usage du logiciel. « Non » est le choix par défaut."""
+        """Premier lancement : demande séparée, jamais liée à l'usage du logiciel. Aucun choix n'est mis en avant ni présélectionné."""
         win = tk.Toplevel(self.root, bg=BG, padx=16, pady=12)
         win.title("Statistiques anonymes (facultatif)")
         win.attributes("-topmost", True)
@@ -719,7 +719,8 @@ class Overlay:
             if hasattr(self, "v_contrib"):
                 self.v_contrib.set(v == "oui")
             win.destroy()
-        txt = ("Servo-Skull fonctionne exactement pareil que tu acceptes ou non.\n\n"
+        txt = ("Ton aide permet de savoir ce qui se joue vraiment sur TTS et d'améliorer les outils pour tous.\n"
+               "Servo-Skull fonctionne exactement pareil que tu acceptes ou non.\n\n"
                "Si tu acceptes, à la fin de chaque partie, un petit fichier ANONYME est créé dans le dossier de la\n"
                "partie : composition des armées, mission, plan de table, positions et scores.\n"
                "Les pseudos sont remplacés par « Joueur A » et « Joueur B » ; aucune capture d'écran, aucun nom\n"
@@ -730,11 +731,10 @@ class Overlay:
         tk.Label(win, text=txt, bg=BG, fg=INK, font=FONT, justify="left").pack(anchor="w", pady=(0, 10))
         row = tk.Frame(win, bg=BG)
         row.pack(fill="x")
-        no = self._btn(row, "Non merci", lambda: choose("non"), kind="primary")
-        no.pack(side="left", ipadx=8)
-        self._btn(row, "J'accepte", lambda: choose("oui")).pack(side="left", padx=8, ipadx=8)
+        # les deux choix ont le même poids visuel (consentement libre : refuser est aussi simple qu'accepter)
+        self._btn(row, "J'accepte", lambda: choose("oui"), kind="primary").pack(side="left", ipadx=8)
+        self._btn(row, "Non merci", lambda: choose("non"), kind="primary").pack(side="left", padx=8, ipadx=8)
         win.protocol("WM_DELETE_WINDOW", lambda: choose("non"))
-        no.focus_set()
 
     def run(self):
         if self.cfg.get("contribution") not in ("oui", "non"):
