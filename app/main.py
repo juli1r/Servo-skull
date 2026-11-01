@@ -12,6 +12,8 @@ from screenshot import enable_dpi_awareness, make_screenshotter  # noqa: E402
 DEFAULTS = {
     "replays_dir": "",  # vide = dossier « parties » à côté du programme
     "hotkey": "f8",
+    "envoi": "",  # "" = pas encore demandé, "oui" / "non" : envoi des fichiers anonymes (accord séparé du fichier local)
+    "firebase": {"project_id": "", "api_key": "", "collection": "servoskull_contributions"},
     "contribution": "",  # "" = pas encore demandé, "oui" / "non" : fichier de contribution anonyme en fin de partie
     "watch_enabled": True,
     "watch_interval_s": 0.5,         # le veilleur, dans TTS, regarde tour/phase à ce rythme (sans réseau)

@@ -9,6 +9,7 @@ from pathlib import Path
 
 import film
 import contribution
+import upload
 import lua_scripts as L
 from core import Session, TurnTracker, normalize_state, turn_label
 from tts_client import TTSClient, TTSError, TTSUnavailable
@@ -223,7 +224,7 @@ class Controller:
         if self.cfg.get("auto_gif", True):
             threading.Thread(target=make_gif, daemon=False).start()
 
-        def make_contribution():  # uniquement si l'utilisateur a accepté ; rien n'est envoyé nulle part
+        def make_contribution():  # fichier local seulement si accepté ; envoi seulement si accepté à part
             try:
                 contribution.export(sess)
             except Exception as e:
@@ -231,9 +232,29 @@ class Controller:
                     (sess.dir / "contribution-erreur.txt").write_text(str(e), encoding="utf-8")
                 except OSError:
                     pass
+                return
+            if not upload.settings(self.cfg):
+                return
+            if self.cfg.get("envoi") == "oui":
+                upload.queue(sess.dir)
+                upload.send_pending(sess.dir.parent, self.cfg, self.client.log)
+            elif self.cfg.get("envoi") != "non":
+                self.emit("ask_send", {"dir": str(sess.dir)})
         if self.cfg.get("contribution") == "oui":
             threading.Thread(target=make_contribution, daemon=False).start()
         return out
+
+    def send_game(self, folder: str):
+        """Envoie une partie dont l'utilisateur vient d'accepter l'envoi (en arrière-plan)."""
+        d = Path(folder)
+
+        def work():
+            try:
+                upload.queue(d)
+                upload.send_pending(d.parent, self.cfg, self.client.log)
+            except Exception as e:
+                self.client.log(f"Envoi impossible : {e}")
+        threading.Thread(target=work, daemon=False).start()
 
     # ------------------------------------------------------------- polling
     def _start_polling(self):

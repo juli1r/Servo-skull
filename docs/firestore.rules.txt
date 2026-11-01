@@ -1,0 +1,17 @@
+// À AJOUTER aux règles Firestore existantes de ton projet (Firebase > Firestore > Règles).
+// NE REMPLACE PAS tes règles actuelles : colle ce bloc À L'INTÉRIEUR de « match /databases/{database}/documents { … } »,
+// à côté de tes autres « match », sinon tu casses les règles de Cogitator.
+//
+// Effet : n'importe quelle installation de Servo-Skull peut DÉPOSER une partie (création seulement, format et taille
+// vérifiés) ; personne ne peut la relire, la modifier ni la supprimer depuis l'extérieur. Tu lis et tu supprimes
+// avec ton compte (console Firebase) ou le script tools/export_contributions.py.
+
+    match /servoskull_contributions/{gid} {
+      allow create: if gid.matches('^[0-9a-f]{32}$')
+        && request.resource.data.keys().hasOnly(['schema', 'app', 'month', 'mode', 'layout', 'nsquads', 'ncaps', 'payload'])
+        && request.resource.data.keys().hasAll(['schema', 'month', 'payload'])
+        && request.resource.data.schema == 1
+        && request.resource.data.month is string && request.resource.data.month.size() <= 7
+        && request.resource.data.payload is string && request.resource.data.payload.size() < 200000;
+      allow read, update, delete: if false;
+    }

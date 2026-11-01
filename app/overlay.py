@@ -1,6 +1,8 @@
 """Overlay : petite fenêtre toujours au premier plan, au-dessus de TTS."""
 from __future__ import annotations
 
+import json
+import os
 import queue
 import sys
 import threading
@@ -10,6 +12,7 @@ import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
+import upload
 from core import COLOR_FR, PHASE_FR, VERSION, Session, phase_label, turn_label
 
 # Design system Cogitator
@@ -300,6 +303,14 @@ class Overlay:
         tk.Checkbutton(f, text="Créer un fichier anonyme pour les stats (rien n'est envoyé)", variable=self.v_contrib,
                        command=_toggle_contrib, bg=BG, fg=MUTE, selectcolor=PANEL, activebackground=BG,
                        activeforeground=INK, font=FONT, anchor="w", highlightthickness=0, bd=0).pack(fill="x")
+        if upload.settings(self.cfg):
+            self.v_envoi = tk.BooleanVar(value=self.cfg.get("envoi") == "oui")
+            def _toggle_envoi():
+                self.cfg["envoi"] = "oui" if self.v_envoi.get() else "non"
+                self.save_cfg(self.cfg)
+            tk.Checkbutton(f, text="Envoyer ce fichier anonyme à la fin de chaque partie", variable=self.v_envoi,
+                           command=_toggle_envoi, bg=BG, fg=MUTE, selectcolor=PANEL, activebackground=BG,
+                           activeforeground=INK, font=FONT, anchor="w", highlightthickness=0, bd=0).pack(fill="x")
         tk.Frame(f, bg=BORDER, height=1).pack(fill="x", pady=(8, 8))
         bot = tk.Frame(f, bg=BG)
         bot.pack(fill="x")
@@ -646,6 +657,8 @@ class Overlay:
             self._status("⚠ TTS ne répond plus (partie fermée ?). Les captures reprennent dès qu'il répond.", AMBER)
         elif ev == "hotkey":
             self._capture()
+        elif ev == "ask_send":
+            self._ask_send(p["dir"])
 
     # -------------------------------------------------------------- divers
     def _install_hotkey(self):
@@ -705,6 +718,55 @@ class Overlay:
         else:
             self.ctl.stop_watch()
         self.root.destroy()
+
+    def _ask_send(self, folder):
+        """Fin de partie : accord séparé pour ENVOYER le fichier anonyme. Trois choix de même poids."""
+        try:
+            f = Path(folder) / "contribution.json"
+            info = json.loads(f.read_text(encoding="utf-8"))
+            ko = max(1, (Path(folder) / "contribution.json.gz").stat().st_size // 1024)
+            detail = f"{len(info.get('squads', []))} unités · {len(info.get('caps', []))} captures · {ko} Ko"
+        except Exception:
+            f, detail = None, ""
+        win = tk.Toplevel(self.root, bg=BG, padx=16, pady=12)
+        win.title("Envoyer cette partie ? (facultatif)")
+        win.attributes("-topmost", True)
+
+        def choose(v):
+            if v in ("une", "toutes"):
+                if v == "toutes":
+                    self.cfg["envoi"] = "oui"
+                    self.save_cfg(self.cfg)
+                    if hasattr(self, "v_envoi"):
+                        self.v_envoi.set(True)
+                self._safe(self.ctl.send_game, folder)
+            else:
+                self.cfg["envoi"] = "non"
+                self.save_cfg(self.cfg)
+                if hasattr(self, "v_envoi"):
+                    self.v_envoi.set(False)
+            win.destroy()
+        txt = ("Le fichier anonyme de ta partie est prêt (" + detail + ").\n"
+               "Veux-tu l'envoyer pour les statistiques de la communauté ? Il ne contient aucun pseudo, aucune capture\n"
+               "d'écran, rien sur ton PC. Tu peux l'ouvrir avant de décider. Un identifiant au hasard permet\n"
+               "de faire supprimer la partie sur demande. Détails : CONFIDENTIALITE.md.")
+        tk.Label(win, text=txt, bg=BG, fg=INK, font=FONT, justify="left").pack(anchor="w", pady=(0, 10))
+        row = tk.Frame(win, bg=BG)
+        row.pack(fill="x")
+        self._btn(row, "Envoyer cette partie", lambda: choose("une"), kind="primary").pack(side="left", ipadx=6)
+        self._btn(row, "Envoyer celle-ci et les suivantes", lambda: choose("toutes"), kind="primary").pack(side="left", padx=8, ipadx=6)
+        self._btn(row, "Ne pas envoyer", lambda: choose("non"), kind="primary").pack(side="left", ipadx=6)
+        if f:
+            def open_file():
+                try:
+                    if sys.platform == "win32":
+                        os.startfile(str(f))
+                    else:
+                        webbrowser.open(f.resolve().as_uri())
+                except Exception:
+                    pass
+            self._btn(win, "Voir le fichier", open_file).pack(anchor="w", pady=(8, 0))
+        win.protocol("WM_DELETE_WINDOW", lambda: win.destroy())  # fermer = pas d'envoi, on redemandera à la prochaine partie
 
     def _consent_dialog(self):
         """Premier lancement : demande séparée, jamais liée à l'usage du logiciel. Aucun choix n'est mis en avant ni présélectionné."""

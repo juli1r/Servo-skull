@@ -43,3 +43,14 @@ une partie à la demande. L'identifiant aléatoire permet la suppression ; en co
 4–5. Adversaire et anonymisation — fait. 6. Pas d'envoi automatique — fait. 7. Hébergement — à choisir.
 8. Suppression — procédure décrite, à outiller avec le serveur. 9. Politique — brouillon : CONFIDENTIALITE.md.
 10. Test avec 3 à 5 amis — à faire. 11. Statistiques agrégées — après ~100 parties.
+
+## Envoi vers Firestore (choisi : même compte Firebase que Cogitator, collection séparée `servoskull_contributions`)
+- Code : `app/upload.py` (API REST, sans bibliothèque), appelé seulement après un accord explicite (réglage `envoi`).
+- Règles de sécurité à AJOUTER (pas remplacer) : `docs/firestore.rules.txt` — création seule, format et taille vérifiés.
+- Un document par partie, identifiant = identifiant aléatoire de la partie : renvoyer ne crée jamais de doublon.
+- Lecture, export et suppression : `tools/export_contributions.py` (avec ton compte, jamais depuis l'application).
+- Les parties ne sont jamais reliées aux comptes, équipes ou ligues de Cogitator. Si un jour des parties doivent
+  alimenter des scrims, ce sera un autre flux, avec un accord explicite au moment de lier.
+- Tests : `tests/verif_upload.py` (faux Firestore local : format, doublon, hors ligne, rien sans accord).
+- Mise en service : renseigner `firebase.project_id` et `firebase.api_key` (clé web du projet, publique par nature)
+  dans les réglages par défaut ; tant qu'ils sont vides, aucun écran d'envoi n'apparaît.

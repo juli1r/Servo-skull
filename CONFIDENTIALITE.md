@@ -30,9 +30,13 @@ Finalité : constituer des statistiques anonymes sur les parties de Warhammer 40
 communauté. Base légale : ton consentement, libre (le logiciel marche pareil sans), donné par une case à cocher
 décochée par défaut, retirable à tout moment.
 
-## Partage
-Aujourd'hui, aucun envoi n'existe. Le jour où il existera, il te sera proposé séparément, partie par partie ou par
-réglage explicite, avec les informations ci-dessous mises à jour (hébergeur, durée, lieu de stockage).
+## Envoi (second accord, distinct du fichier local)
+À la fin d'une partie, si un serveur est configuré et que tu n'as pas déjà répondu, Servo-Skull te demande si tu veux
+**envoyer** le fichier : « cette partie », « celle-ci et les suivantes » ou « ne pas envoyer » (trois choix de même poids),
+avec un bouton pour ouvrir le fichier avant de décider. Tu peux changer d'avis avec la case à cocher de l'écran de partie.
+Sans accord, rien ne part. L'envoi se fait vers une base Google Firebase (Firestore) hébergée en [région UE à compléter],
+en écriture seule : les applications peuvent déposer une partie mais pas relire celles des autres.
+Les parties envoyées ne sont reliées à aucun compte ni à aucun autre service du même éditeur.
 
 ## Conservation, suppression
 Durée de conservation prévue : [24 mois] après réception. Pour retirer une partie déjà partagée, écris à [contact] avec
