@@ -112,7 +112,11 @@ local known = JSON.decode([==[""" + known + r"""]==]) or {}
 -- capture légère (fin de phase) : seulement les figurines, et pour celles déjà connues
 -- seulement position / rotation / PV ; décors et détails restent ceux de la dernière capture complète
 local light = __LIGHT__
+local __clk = (os ~= nil and os.clock) or function() return 0 end
+local __t0, __tm = __clk(), {}
+local function __mark(n) local t = __clk(); __tm[#__tm + 1] = {n, math.floor((t - __t0) * 1000)}; __t0 = t end
 local r = state()
+__mark("state")
 local ss = gobj("scoresheet_GUID")
 if ss ~= nil then
   r.scores = ss.getTable("scores")
@@ -160,6 +164,7 @@ for _, n in ipairs(zoneCards("secondary12CardZone_GUID")) do table.insert(r.card
 for _, n in ipairs(zoneCards("secondary21CardZone_GUID")) do table.insert(r.cards.blueSecondary, n) end
 for _, n in ipairs(zoneCards("secondary22CardZone_GUID")) do table.insert(r.cards.blueSecondary, n) end
 
+__mark("zones")
 -- LCT 11e : les cartes posées ne sont pas « dans » les zones (zones trop petites, cartes décalées).
 -- On range chaque carte posée sur la table selon la zone de mission nommée la plus proche.
 do
@@ -223,6 +228,7 @@ do
   end
 end
 
+__mark("cardscan")
 local skip = {}
 for _, var in ipairs({"mat_GUID", "felt_GUID", "table_GUID", "scoresheet_GUID", "startMenu_GUID"}) do
   local g = Global.getVar(var)
@@ -235,7 +241,8 @@ local skipNames = {ScriptingTrigger = true, HandTrigger = true, FogOfWarTrigger 
 r.objects = {}
 r.unitJson = {}
 local jsonBudget = 20
-for _, o in ipairs(getAllObjects()) do
+local __all = getAllObjects()
+for _, o in ipairs(__all) do
   local g = o.getGUID()
   local nick = o.getName() or ""
   local isUnit = string.find(nick, "^%[%x%x%x%x%x%x%]%d+/%d+%[%-%]") ~= nil
@@ -273,6 +280,8 @@ for _, o in ipairs(getAllObjects()) do
     table.insert(r.objects, e)
   end
 end
+__mark("objects")
+r.perf = {st = __tm, nAll = #__all, nObj = #r.objects, light = light}
 return r
 """).replace("__ME__", my_color or "").replace("__LIGHT__", "true" if light else "false")
 
@@ -372,7 +381,10 @@ onObjectDrop = function(color, obj)
   if SERVO_SKULL_ORIG_DROP then return SERVO_SKULL_ORIG_DROP(color, obj) end
 end
 local last, beat = "", 0
+local __clk = (os ~= nil and os.clock) or function() return 0 end
+local tmax, tsum, tn = 0, 0, 0
 local id = Wait.time(function()
+  local c0 = __clk()
   local ok, err = pcall(function()
     local sm = gobj("startMenu_GUID")
     local k = "?"
@@ -385,7 +397,11 @@ local id = Wait.time(function()
       last = k
       beat = 0
       -- l'état part en texte JSON : sendExternalMessage échoue en silence sur les tables complexes
+      local b0 = __clk()
       local st = state(changed)
+      st.perf = {{tickMaxMs = math.floor(tmax * 1000), tickAvgMs = (tn > 0) and math.floor(tsum / tn * 10000) / 10 or 0, ticks = tn,
+                 stateMs = math.floor((__clk() - b0) * 1000), changed = changed}}
+      tmax, tsum, tn = 0, 0, 0
       if changed then  -- les figurines posées pendant la phase qui vient de finir
         st.drops = SERVO_SKULL_DROPS
         SERVO_SKULL_DROPS = {{}}
@@ -393,6 +409,8 @@ local id = Wait.time(function()
       sendExternalMessage({{servoSkull = true, changed = changed, json = JSON.encode(st)}})
     end
   end)
+  local dt = __clk() - c0
+  tn = tn + 1; tsum = tsum + dt; if dt > tmax then tmax = dt end
   if not ok then Global.setVar("SERVO_SKULL_LAST_ERROR", tostring(err)) end
 end, {interval}, -1)
 Global.setTable("SERVO_SKULL_TIMERS", {{id}})

@@ -294,6 +294,9 @@ class Controller:
             if not isinstance(st, dict) or not self.session:
                 continue
             self._pending_drops = st.pop("drops", None)
+            perf = st.pop("perf", None)
+            if perf:
+                self.client.log(f"[perf] veilleur {perf}")
             if not st.get("full") and isinstance(self.state, dict):
                 for k in ("vp", "cp", "players", "sheet", "scoresheetDesc", "score"):
                     if k in self.state and k not in st:
@@ -408,12 +411,17 @@ class Controller:
                     import copy
                     snap = copy.deepcopy(self._last_snap)   # phase passée trop vite : même table, pas de nouvelle lecture
                 else:
+                    t_cap = time.monotonic()
                     try:
                         # 120 s : avec 10 s, un TTS chargé répondait après le délai et le résultat était jeté
                         snap = self.client.run_lua(L.capture(self.session.known_unit_guids(), self.session.my_color,
                                                               light=light and self.session.has_full_capture()), timeout=120)
                     except TTSError as e:
                         self.emit("error", f"Lecture de la table impossible : {e}")
+                    if isinstance(snap, dict):  # mesures : où va le temps (Lua dans TTS ou aller-retour)
+                        perf = snap.pop("perf", None)
+                        self.client.log(f"[perf] capture {kind} {'légère' if light else 'complète'} "
+                                        f"aller-retour={int((time.monotonic() - t_cap) * 1000)} ms ; TTS={perf}")
                     if snap:
                         import copy
                         self._last_snap = copy.deepcopy({k: v for k, v in snap.items() if k != "unitJson"})
