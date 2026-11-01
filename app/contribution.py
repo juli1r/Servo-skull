@@ -24,6 +24,35 @@ KEEP_MISSION = ("redPrimary", "bluePrimary", "deployment", "twist", "redSecondar
                 "redDisposition", "blueDisposition")
 NUM = (int, float)
 
+# Règle d'armée affichée dans les capacités des figurines -> faction. Plus fiable que les noms d'unités.
+ARMY_RULES = {
+    "blessings of khorne": "World Eaters", "the shadow of chaos": "Chaos Daemons", "gate of infinity": "Grey Knights",
+    "combat doctrines": "Space Marines", "oath of moment": "Space Marines", "waaagh!": "Orks",
+    "nurgle's gift": "Death Guard", "martial ka'tah": "Adeptus Custodes", "doctrina imperatives": "Adeptus Mechanicus",
+}
+
+
+def _faction_by_squad(session: Session) -> dict:
+    """{clé d'escouade (« uuid:… »): faction} d'après les règles d'armée lues dans les fiches de unités de la partie."""
+    out: dict = {}
+    folder = Path(session.dir) / "units"
+    if not folder.is_dir():
+        return out
+    for f in folder.glob("*.json"):
+        try:
+            u = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        desc = re.sub(r"\[[0-9a-fA-F]{6}\]|\[-\]", "", str(u.get("Description") or ""))
+        low = desc.lower()
+        fac = next((v for k, v in ARMY_RULES.items() if k in low), None)
+        if not fac:
+            continue
+        for t in u.get("Tags") or []:
+            if isinstance(t, str) and t.startswith("uuid:"):
+                out.setdefault(t, Counter())[fac] += 1
+    return {k: c.most_common(1)[0][0] for k, c in out.items()}
+
 
 def _side(c) -> str | None:
     return SIDE.get(c)
@@ -96,6 +125,13 @@ def build(session: Session) -> dict:
             sq["doubt"] = 1
         squads.append(sq)
 
+    by_squad = _faction_by_squad(session)
+    fvotes: dict = {"A": Counter(), "B": Counter()}
+    for k, sq in zip(keys, squads):
+        if sq["s"] in fvotes and by_squad.get(k):
+            fvotes[sq["s"]][by_squad[k]] += 1
+    factions = {s: (c.most_common(1)[0][0] if c else None) for s, c in fvotes.items()}
+
     terrain, objectives = [], []
     caps = []
     for c in caps_in:
@@ -118,6 +154,7 @@ def build(session: Session) -> dict:
         "board": {"w": d["board"].get("w"), "d": d["board"].get("d")},
         "layout": _clean_name(str(fit.get("name") or ""), secrets) if fit.get("name") else None,
         "mission": _mission(d.get("mission"), secrets),
+        "factions": factions,
         "squads": squads, "terrain": terrain, "objectives": objectives, "caps": caps,
     }
     leak(out, secrets)

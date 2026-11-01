@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Servo-Skull Stats</title>
+<style>
+:root{--bg0:#080b10;--bg1:#10141e;--bg2:#1a2235;--bg3:#232c42;--border:#2a3348;--border2:#354158;--t1:#dde3f0;--t2:#8e95a8;--coral:#ff6b47;--cyan:#38bdf8;--amber:#fbbf24;--grid:#232c42;--axis:#4a566e;color-scheme:dark}
+@media (prefers-color-scheme:light){:root{--bg0:#f0f2f5;--bg1:#ffffff;--bg2:#f8f9fb;--bg3:#ebedf2;--border:#d4d8e0;--border2:#c0c6d0;--t1:#111827;--t2:#52586a;--coral:#e8562e;--cyan:#0c87c9;--amber:#9a6a00;--grid:#e3e6ec;--axis:#9aa2b2;color-scheme:light}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg0);color:var(--t1);font-family:'Share Tech Mono',ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.5}
+h1,h2{font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif;text-transform:uppercase;letter-spacing:.06em;margin:0}
+h1{font-size:40px;font-weight:700;color:var(--coral)}h2{font-size:22px;font-weight:600}
+.wrap{max-width:1360px;margin:0 auto;padding:28px clamp(16px,3vw,40px) 48px;display:flex;flex-direction:column;gap:20px}
+.muted{color:var(--t2);font-size:12px}
+.row{display:flex;flex-wrap:wrap;gap:16px}.row>*{flex:1 1 420px;min-width:0}
+.card{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:6px;min-width:0}
+header{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
+.pill{border:1px solid var(--border);border-radius:99px;padding:6px 14px;font-size:12px;color:var(--t2);background:var(--bg1)}
+.filters{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--t2);letter-spacing:.08em;text-transform:uppercase}
+select,input,button{height:44px;background:var(--bg0);color:var(--t1);border:1px solid var(--border2);border-radius:8px;padding:0 12px;font:inherit;min-width:0}
+select{min-width:170px}button{color:var(--cyan);border-color:var(--cyan);padding:0 18px;cursor:pointer;background:transparent}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.note{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:rgba(251,191,36,.10);border:1px solid rgba(251,191,36,.5);border-radius:10px;padding:12px 16px;color:var(--amber)}
+.note b{font-family:'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.08em;text-transform:uppercase;font-size:15px}.note span{color:var(--t1)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:16px}
+.kpi{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:18px 20px}
+.kpi small{display:block;font-size:11px;color:var(--t2);letter-spacing:.08em;text-transform:uppercase}
+.kpi strong{font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:48px;font-weight:600;color:var(--cyan);line-height:1.1}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-weight:400;color:var(--t2);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border)}
+td{padding:9px 10px;border-bottom:1px solid var(--bg2);white-space:nowrap}
+td:first-child{white-space:normal}
+.n{text-align:right}tr.sel td{background:rgba(255,107,71,.14)}
+td button.link{height:auto;border:0;padding:0;color:var(--t1);text-align:left;text-decoration:underline dotted;cursor:pointer}
+.bar{display:inline-block;height:10px;border-radius:2px;vertical-align:middle;margin-right:8px}
+.badge{font-size:10px;color:var(--amber);border:1px solid var(--amber);border-radius:99px;padding:0 7px;margin-left:6px;white-space:nowrap}
+.mx td,.mx th{text-align:center;border:1px solid var(--bg2)}.mx td:first-child,.mx th:first-child{text-align:left}
+.legend{display:flex;gap:16px;color:var(--t2);font-size:12px}.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
+svg{max-width:100%;height:auto}svg text{fill:var(--t2);font-family:inherit;font-size:11px}
+.focus{border-style:dashed}
+.prog{height:8px;background:var(--bg3);border-radius:99px;max-width:420px}.prog>div{height:8px;background:var(--amber);border-radius:99px}
+.big{font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:56px;font-weight:600;line-height:1}
+footer{color:var(--t2);font-size:12px;border-top:1px solid var(--border);padding-top:16px}
+.empty{color:var(--t2);padding:24px 0}
+.tip{position:fixed;pointer-events:none;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:6px 10px;font-size:12px;z-index:9;display:none;white-space:nowrap}
+@media (prefers-reduced-motion:no-preference){.bar{transition:width .3s}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+<header>
+<div><h1>Servo-Skull Stats</h1><div class="muted" id="sub">Chargement…</div></div>
+<div class="pill" id="count"></div>
+</header>
+
+<section class="card" aria-label="Filtres"><div class="filters">
+<label for="f_faction">Faction<select id="f_faction"></select></label>
+<label for="f_opp">Adversaire<select id="f_opp"></select></label>
+<label for="f_dispo">Disposition<select id="f_dispo"></select></label>
+<label for="f_deploy">Déploiement<select id="f_deploy"></select></label>
+<label for="f_q" style="flex:1 1 200px">Recherche<input id="f_q" type="search" placeholder="Faction, mission, partie"></label>
+<button id="f_reset" type="button">Réinitialiser</button>
+</div><p class="muted" id="match"></p></section>
+
+<div class="note" id="lowsample" role="note" hidden><b>Échantillon faible</b><span id="lowtxt"></span></div>
+
+<section id="focus" class="card focus" hidden></section>
+
+<section class="kpis" id="kpis"></section>
+
+<div class="row">
+<section class="card"><h2>Win rate par faction</h2><p class="muted">Intervalle de Wilson à 95 %. Le badge signale moins de <span class="minr"></span> parties. Clique une faction pour la filtrer.</p><div class="scroll" id="t_fac"></div></section>
+<section class="card"><h2>Win rate par disposition</h2><p class="muted">Vu du joueur qui joue la disposition.</p><div class="scroll" id="t_dis"></div></section>
+</div>
+<div class="row">
+<section class="card"><h2>Qui mène, manche après manche</h2><p class="muted">Écart de PV, Joueur A moins Joueur B. Au-dessus de la ligne, A est devant.</p><div id="c_lead"></div></section>
+<section class="card"><h2>Score final par partie</h2><div class="legend"><span><i class="sw" style="background:var(--coral)"></i>Joueur A</span><span><i class="sw" style="background:var(--cyan)"></i>Joueur B</span></div><div id="c_score"></div></section>
+</div>
+<div class="row">
+<section class="card"><h2>Duels faction contre faction</h2><p class="muted">La ligne affronte la colonne. Victoires sur parties : bleu gagne, corail perd.</p><div class="scroll" id="t_mx"></div></section>
+<section class="card"><h2>Unités qui ont le plus souffert</h2><p class="muted">Pertes de 40 % ou plus en fin de partie (figurines ou points de vie).</p><div class="scroll" id="t_lost"></div></section>
+</div>
+<section class="card"><h2>Les parties</h2><p class="muted">Faction (déduite des noms d'unités), disposition et score de chaque camp.</p><div class="scroll" id="t_games"></div></section>
+
+<footer>Méthode : les factions sont déduites des noms d'unités. Les camps A et B sont anonymes. Le win rate vient des parties envoyées volontairement par des joueurs Servo-Skull sur Tabletop Simulator : il ne représente pas toute la scène compétitive. Aucune donnée personnelle n'est affichée.</footer>
+</div>
+<div class="tip" id="tip"></div>
+<script src="stats.js"></script>
+<script>
+(function(){
+'use strict';
+var D=window.STATS;if(!D){document.getElementById('sub').textContent='stats.js introuvable : lance tools/build_stats.py.';return;}
+var MIN=D.min_reliable||5,PAL=['#ff6b47','#38bdf8','#fbbf24','#a78bfa','#34d399','#f472b6','#fb923c','#818cf8'];
+var S={faction:'',opp:'',dispo:'',deploy:'',q:''};
+var $=function(id){return document.getElementById(id);};
+function el(tag,attrs,kids){var e=document.createElement(tag);for(var k in (attrs||{})){if(k==='text')e.textContent=attrs[k];else if(k==='style')e.style.cssText=attrs[k];else if(k==='class')e.className=attrs[k];else e.setAttribute(k,attrs[k]);}(kids||[]).forEach(function(c){e.append(c);});return e;}
+function uniq(a){return a.filter(function(v,i){return v&&a.indexOf(v)===i;});}
+var gById={};D.games.forEach(function(g){gById[g.id]=g;});
+function pass(g){
+ if(S.faction&&g.factionA!==S.faction&&g.factionB!==S.faction)return false;
+ if(S.opp){var ok=(g.factionA===S.faction&&g.factionB===S.opp)||(g.factionB===S.faction&&g.factionA===S.opp);if(!ok)return false;}
+ if(S.dispo&&g.dispoA!==S.dispo&&g.dispoB!==S.dispo)return false;
+ if(S.deploy&&g.deployment!==S.deploy)return false;
+ if(S.q){var t=[g.id,g.month,g.layout,g.deployment,g.factionA,g.factionB,g.dispoA,g.dispoB].join(' ').toLowerCase();if(t.indexOf(S.q.toLowerCase())<0)return false;}
+ return true;}
+function persp(){return D.perspectives.filter(function(r){
+ var g=gById[r.game];if(!g||!pass(g))return false;
+ if(S.faction&&r.faction!==S.faction)return false;
+ if(S.dispo&&r.dispo!==S.dispo)return false;
+ return true;});}
+function wilson(w,n){if(!n)return[0,0];var p=w/n,z=1.96,d=1+z*z/n,c=p+z*z/(2*n),a=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n));return[Math.round(100*(c-a)/d),Math.round(100*(c+a)/d)];}
+function agg(rows,key){var o={};rows.forEach(function(r){var k=r[key];if(!k)return;var x=o[k]||(o[k]={name:k,games:0,wins:0,vp:0});x.games++;x.wins+=r.result==='V'?1:0;x.vp+=r.vp;});
+ return Object.keys(o).map(function(k){var x=o[k],w=wilson(x.wins,x.games);return{name:x.name,games:x.games,wins:x.wins,rate:Math.round(100*x.wins/x.games),lo:w[0],hi:w[1],avg:x.vp/x.games};}).sort(function(a,b){return b.games-a.games||b.rate-a.rate||a.name.localeCompare(b.name);});}
+var f1=function(v){return(Math.round(v*10)/10).toString().replace('.',',');};
+function badge(){return el('span',{class:'badge',text:'faible'});}
+
+function fillSelect(id,vals,label,key){var s=$(id);var cur=S[key];s.replaceChildren(new Option(label,''));vals.forEach(function(v){s.append(new Option(v,v));});s.value=vals.indexOf(cur)>=0?cur:'';S[key]=s.value;}
+function selects(){
+ fillSelect('f_faction',uniq(D.factions.map(function(f){return f.faction;})),'Toutes','faction');
+ var opps=S.faction?uniq(D.matchups.filter(function(m){return m.faction===S.faction;}).map(function(m){return m.opp;})):[];
+ fillSelect('f_opp',opps,S.faction?'Tous':'Choisir une faction','opp');$('f_opp').disabled=!S.faction;
+ fillSelect('f_dispo',uniq(D.dispositions.map(function(d){return d.dispo;})),'Toutes','dispo');
+ fillSelect('f_deploy',uniq(D.games.map(function(g){return g.deployment;})),'Tous','deploy');}
+
+function rateTable(host,rows,key,clickable){host.replaceChildren();if(!rows.length){host.append(el('p',{class:'empty',text:'Aucune partie pour ces filtres.'}));return;}
+ var t=el('table'),hd=el('tr');['Nom','Parties','V','Win rate','Intervalle','PV moy.'].forEach(function(h,i){hd.append(el('th',{text:h==='Nom'?(key==='faction'?'Faction':'Disposition'):h,class:i===1||i===2||i>=4?'n':''}));});t.append(el('thead',{},[hd]));
+ var tb=el('tbody');rows.forEach(function(r){var tr=el('tr',{class:(key==='faction'&&S.faction===r.name)||(key==='dispo'&&S.dispo===r.name)?'sel':''});
+  var td0=el('td');if(clickable){var b=el('button',{type:'button',class:'link',text:r.name});b.onclick=function(){S[key]=S[key]===r.name?'':r.name;if(key==='faction')S.opp='';update(true);};td0.append(b);}else td0.textContent=r.name;if(r.games<MIN)td0.append(badge());
+  var tw=el('td');tw.append(el('span',{class:'bar',style:'width:'+Math.max(4,r.rate*1.2)+'px;background:'+(r.rate<50?'var(--coral)':'var(--cyan)')}),document.createTextNode(r.rate+' %'));
+  tr.append(td0,el('td',{class:'n',text:r.games}),el('td',{class:'n',text:r.wins}),tw,el('td',{class:'n',text:r.lo+'–'+r.hi+' %'}),el('td',{class:'n',text:f1(r.avg)}));tb.append(tr);});
+ t.append(tb);host.append(t);}
+
+function tipShow(ev,lines){var t=$('tip');t.replaceChildren();lines.forEach(function(l){t.append(el('div',{text:l}));});t.style.display='block';var x=ev.clientX+14,y=ev.clientY+14;if(x+t.offsetWidth>innerWidth-8)x=ev.clientX-t.offsetWidth-14;t.style.left=Math.max(4,x)+'px';t.style.top=y+'px';}
+function tipHide(){$('tip').style.display='none';}
+var NS='http://www.w3.org/2000/svg';
+function sv(tag,attrs){var e=document.createElementNS(NS,tag);for(var k in attrs)e.setAttribute(k,attrs[k]);return e;}
+function txt(x,y,s,anchor){var t=sv('text',{x:x,y:y,'text-anchor':anchor||'start'});t.textContent=s;return t;}
+
+function leadChart(games){var h=$('c_lead');h.replaceChildren();if(!games.length){h.append(el('p',{class:'empty',text:'Aucune partie pour ces filtres.'}));return;}
+ var W=600,H=240,m={l:40,r:44,t:12,b:30},maxR=Math.max.apply(null,games.map(function(g){return g.nrounds;})),lim=5;
+ games.forEach(function(g){g.rounds.forEach(function(r){lim=Math.max(lim,Math.abs((r.vpA||0)-(r.vpB||0)));});});lim=Math.ceil(lim/5)*5;
+ var x=function(r){return maxR===1?m.l:m.l+(r-1)*(W-m.l-m.r)/(maxR-1);},y=function(v){return m.t+(lim-v)*(H-m.t-m.b)/(2*lim);};
+ var s=sv('svg',{viewBox:'0 0 '+W+' '+H,role:'img','aria-label':'Écart de points de victoire par manche'});
+ [-lim,-lim/2,0,lim/2,lim].forEach(function(v){s.append(sv('line',{x1:m.l,x2:W-m.r,y1:y(v),y2:y(v),stroke:v===0?'var(--axis)':'var(--grid)'}));s.append(txt(m.l-6,y(v)+4,(v>0?'+':'')+Math.round(v),'end'));});
+ for(var r=1;r<=maxR;r++)s.append(txt(x(r),H-8,'M'+r,'middle'));
+ games.forEach(function(g){var i=D.games.indexOf(g),c=PAL[i%PAL.length],pts=g.rounds.map(function(r){return x(r.r)+','+y((r.vpA||0)-(r.vpB||0));});
+  s.append(sv('polyline',{points:pts.join(' '),fill:'none',stroke:c,'stroke-width':2,'stroke-linecap':'round','stroke-linejoin':'round'}));
+  g.rounds.forEach(function(r){var d=(r.vpA||0)-(r.vpB||0),dot=sv('circle',{cx:x(r.r),cy:y(d),r:r===g.rounds[g.rounds.length-1]?4:9,fill:r===g.rounds[g.rounds.length-1]?c:'transparent'});
+   dot.addEventListener('mousemove',function(ev){tipShow(ev,['Partie '+g.id+', manche '+r.r,'A '+r.vpA+' PV, B '+r.vpB+' PV','Écart '+(d>0?'+':'')+d]);});dot.addEventListener('mouseleave',tipHide);s.append(dot);});
+  var e=g.rounds[g.rounds.length-1];s.append(txt(x(e.r)+8,y((e.vpA||0)-(e.vpB||0))+4,'P'+(i+1)));});
+ h.append(s);}
+
+function scoreChart(games){var h=$('c_score');h.replaceChildren();if(!games.length){h.append(el('p',{class:'empty',text:'Aucune partie pour ces filtres.'}));return;}
+ var W=600,H=240,m={l:36,r:8,t:12,b:30},mx=Math.max.apply(null,games.map(function(g){return Math.max(g.totalA,g.totalB);}));mx=Math.ceil(mx/20)*20;
+ var y=function(v){return m.t+(mx-v)*(H-m.t-m.b)/mx;},bw=(W-m.l-m.r)/games.length,s=sv('svg',{viewBox:'0 0 '+W+' '+H,role:'img','aria-label':'Score final de chaque camp'});
+ for(var v=0;v<=mx;v+=mx/4){s.append(sv('line',{x1:m.l,x2:W-m.r,y1:y(v),y2:y(v),stroke:'var(--grid)'}));s.append(txt(m.l-6,y(v)+4,Math.round(v),'end'));}
+ games.forEach(function(g,i){var gx=m.l+i*bw+bw*.12,w=Math.min(26,bw*.34);
+  [['A',g.totalA,'var(--coral)'],['B',g.totalB,'var(--cyan)']].forEach(function(p,j){var bx=gx+j*(w+3),r=sv('rect',{x:bx,y:y(p[1]),width:w,height:y(0)-y(p[1]),rx:2,fill:p[2]});
+   r.addEventListener('mousemove',function(ev){tipShow(ev,['Partie '+g.id+', Joueur '+p[0],p[1]+' PV',g.factionA+' contre '+g.factionB]);});r.addEventListener('mouseleave',tipHide);s.append(r);
+   s.append(txt(bx+w/2,y(p[1])-4,Math.round(p[1]),'middle'));});
+  s.append(txt(gx+w+1.5,H-8,'P'+(D.games.indexOf(g)+1),'middle'));});
+ h.append(s);}
+
+function matrix(rows){var h=$('t_mx');h.replaceChildren();var cell={},fs=[];D.matchups.forEach(function(m){});
+ var ids={};rows.forEach(function(r){ids[r.game]=1;});
+ var mm={};D.perspectives.forEach(function(r){var g=gById[r.game];if(!g||!pass(g))return;var k=r.faction+'|'+r.opp,o=mm[k]||(mm[k]={f:r.faction,o:r.opp,g:0,w:0});o.g++;o.w+=r.result==='V'?1:0;});
+ var list=Object.keys(mm).map(function(k){return mm[k];});list.forEach(function(m){if(fs.indexOf(m.f)<0)fs.push(m.f);});fs.sort();
+ if(!fs.length){h.append(el('p',{class:'empty',text:'Aucune partie pour ces filtres.'}));return;}
+ var t=el('table',{class:'mx',style:'min-width:'+(120+fs.length*70)+'px'}),hr=el('tr',{},[el('th')]);fs.forEach(function(f){hr.append(el('th',{text:f.split(' ').map(function(w){return w[0];}).join('').slice(0,3),title:f}));});t.append(el('thead',{},[hr]));
+ var tb=el('tbody');fs.forEach(function(f){var tr=el('tr',{class:S.faction===f?'sel':''},[el('td',{text:f})]);fs.forEach(function(o){var m=mm[f+'|'+o],td=el('td');
+  if(m){td.textContent=m.w+'/'+m.g;td.style.background=(m.w/m.g>=.5?'rgba(56,189,248,':'rgba(255,107,71,')+Math.min(.18+m.g*.12,.7)+')';td.title=f+' contre '+o;}else{td.textContent='·';td.style.color='var(--axis)';}tr.append(td);});tb.append(tr);});
+ t.append(tb);h.append(t);}
+
+function lostTable(games){var h=$('t_lost');h.replaceChildren();var rows=[];games.forEach(function(g){g.lost.forEach(function(u){if(S.faction&&u.faction!==S.faction)return;rows.push({unit:u.unit,faction:u.faction,pct:u.lost_pct,g:g});});});
+ if(!rows.length){h.append(el('p',{class:'empty',text:'Aucune unité très touchée pour ces filtres.'}));return;}
+ var by={};rows.forEach(function(r){var k=r.unit+'|'+r.faction,o=by[k]||(by[k]={unit:r.unit,faction:r.faction,n:0,sum:0,max:0});o.n++;o.sum+=r.pct;o.max=Math.max(o.max,r.pct);});
+ var list=Object.keys(by).map(function(k){return by[k];}).sort(function(a,b){return b.sum/b.n-a.sum/a.n||b.n-a.n;}).slice(0,12);
+ var t=el('table'),hd=el('tr');['Unité','Faction','Parties','Perte moy.'].forEach(function(x,i){hd.append(el('th',{text:x,class:i>1?'n':''}));});t.append(el('thead',{},[hd]));
+ var tb=el('tbody');list.forEach(function(r){var p=Math.round(r.sum/r.n),tp=el('td',{class:'n'});tp.append(el('span',{class:'bar',style:'width:'+(p*.6)+'px;background:var(--coral);height:8px'}),document.createTextNode(p+' %'));
+  tb.append(el('tr',{},[el('td',{text:r.unit}),el('td',{text:r.faction}),el('td',{class:'n',text:r.n}),tp]));});t.append(tb);h.append(t);}
+
+function gamesTable(games){var h=$('t_games');h.replaceChildren();if(!games.length){h.append(el('p',{class:'empty',text:'Aucune partie pour ces filtres.'}));return;}
+ var t=el('table',{style:'min-width:760px'}),hd=el('tr');['Partie','Mois','Camp A','Camp B','Vainqueur','Manches'].forEach(function(x,i){hd.append(el('th',{text:x,class:i===5?'n':''}));});t.append(el('thead',{},[hd]));
+ var tb=el('tbody');games.forEach(function(g){var side=function(s){return g['faction'+s]+' · '+(g['dispo'+s]||'?')+' · '+Math.round(g['total'+s])+' PV';};
+  tb.append(el('tr',{},[el('td',{text:'P'+(D.games.indexOf(g)+1)}),el('td',{text:g.month||''}),el('td',{text:side('A')}),el('td',{text:side('B')}),el('td',{text:g.winner==='='?'Égalité':'Camp '+g.winner}),el('td',{class:'n',text:g.nrounds})]));});
+ t.append(tb);h.append(t);}
+
+function focusPanel(games,rows){var h=$('focus');h.replaceChildren();if(!S.faction){h.hidden=true;return;}h.hidden=false;
+ var me=agg(rows,'faction')[0]||{games:0,wins:0,rate:0,lo:0,hi:0,avg:0};
+ if(S.opp){var n=games.length;h.append(el('h2',{text:S.faction+' contre '+S.opp}));
+  if(n<MIN){h.append(el('div',{class:'note',style:'align-self:flex-start'},[el('b',{text:'Données insuffisantes'}),el('span',{text:'Le win rate de ce duel s\'affiche à partir de '+MIN+' parties.'})]),el('div',{class:'big',style:'color:var(--t2)',text:n+(n>1?' parties':' partie')}),
+   el('div',{class:'muted',text:'Parties enregistrées : '+n+' sur '+MIN}),el('div',{class:'prog'},[el('div',{style:'width:'+Math.min(100,100*n/MIN)+'%'})]));}
+  else h.append(el('div',{class:'big',style:'color:var(--cyan)',text:me.rate+' %'}),el('div',{class:'muted',text:me.wins+' victoires sur '+me.games+' · intervalle '+me.lo+'–'+me.hi+' %'}));
+  return;}
+ h.append(el('h2',{text:'Fiche '+S.faction}),el('div',{class:'muted',text:me.games+' parties · '+me.wins+' victoires · '+me.rate+' % · PV moyens '+f1(me.avg)+(me.games<MIN?' · échantillon faible':'')}));}
+
+function update(rebuild){if(rebuild)selects();
+ var games=D.games.filter(pass),rows=persp();
+ $('match').textContent=games.length+' parties sur '+D.games.length+' correspondent aux filtres.';
+ $('count').textContent=D.games.length+' parties analysées';
+ var low=D.games.length<30;$('lowsample').hidden=!low;$('lowtxt').textContent='Moins de 30 parties : les pourcentages sont indicatifs. Chaque chiffre affiche le nombre de parties derrière lui.';
+ var k=$('kpis');k.replaceChildren();var rounds=games.reduce(function(s,g){return s+g.nrounds;},0),close=games.filter(function(g){return g.margin<5;}).length,avg=games.length?games.reduce(function(s,g){return s+g.margin;},0)/games.length:0;
+ [['Parties',games.length],['Manches jouées',rounds],['Écart moyen final',f1(avg)+' PV'],['Parties à moins de 5 PV',close]].forEach(function(p){k.append(el('div',{class:'kpi'},[el('small',{text:p[0]}),el('strong',{text:p[1]})]));});
+ focusPanel(games,rows);
+ rateTable($('t_fac'),agg(rows,'faction'),'faction',true);rateTable($('t_dis'),agg(rows,'dispo'),'dispo',true);
+ leadChart(games);scoreChart(games);matrix(rows);lostTable(games);gamesTable(games);}
+
+$('sub').textContent='Parties de la communauté Servo-Skull · mises à jour le '+D.updated;
+document.querySelectorAll('.minr').forEach(function(e){e.textContent=MIN;});
+[['f_faction','faction'],['f_opp','opp'],['f_dispo','dispo'],['f_deploy','deploy']].forEach(function(p){$(p[0]).addEventListener('change',function(){S[p[1]]=this.value;if(p[1]==='faction')S.opp='';update(true);});});
+$('f_q').addEventListener('input',function(){S.q=this.value;update(false);});
+$('f_reset').addEventListener('click',function(){S={faction:'',opp:'',dispo:'',deploy:'',q:''};$('f_q').value='';update(true);});
+update(true);
+})();
+</script>
+</body>
+</html>

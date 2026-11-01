@@ -54,3 +54,7 @@ une partie à la demande. L'identifiant aléatoire permet la suppression ; en co
 - Tests : `tests/verif_upload.py` (faux Firestore local : format, doublon, hors ligne, rien sans accord).
 - Mise en service : renseigner `firebase.project_id` et `firebase.api_key` (clé web du projet, publique par nature)
   dans les réglages par défaut ; tant qu'ils sont vides, aucun écran d'envoi n'apparaît.
+
+
+## Faction (ajoutée à l'export)
+Le fichier anonyme contient désormais `factions: {"A": ..., "B": ...}`. Elle est lue par l'application dans la règle d'armée affichée sur les fiches d'unités (ex. « Blessings of Khorne » = World Eaters), pas devinée à partir des noms. C'est une donnée de jeu, sans lien avec une personne. Les anciens fichiers sans ce champ retombent sur une déduction par mots-clés (`tools/factions.py`).
