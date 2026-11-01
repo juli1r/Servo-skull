@@ -13,7 +13,11 @@ DEFAULTS = {
     "replays_dir": "",  # vide = dossier « parties » à côté du programme
     "hotkey": "f8",
     "envoi": "",  # "" = pas encore demandé, "oui" / "non" : envoi des fichiers anonymes (accord séparé du fichier local)
-    "firebase": {"project_id": "", "api_key": "", "collection": "servoskull_contributions"},
+    "firebase": {  # clé web Firebase : publique par nature (c'est l'adresse du dépôt ; les règles Firestore font la sécurité)
+        "project_id": "servo-skull-74f0a",
+        "api_key": "AIzaSyDR20oqMz2q6qHS_e109pliJnYQhP6NaeU",
+        "collection": "servoskull_contributions",
+    },
     "contribution": "",  # "" = pas encore demandé, "oui" / "non" : fichier de contribution anonyme en fin de partie
     "watch_enabled": True,
     "watch_interval_s": 0.5,         # le veilleur, dans TTS, regarde tour/phase à ce rythme (sans réseau)

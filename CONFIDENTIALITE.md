@@ -34,7 +34,7 @@ décochée par défaut, retirable à tout moment.
 À la fin d'une partie, si un serveur est configuré et que tu n'as pas déjà répondu, Servo-Skull te demande si tu veux
 **envoyer** le fichier : « cette partie », « celle-ci et les suivantes » ou « ne pas envoyer » (trois choix de même poids),
 avec un bouton pour ouvrir le fichier avant de décider. Tu peux changer d'avis avec la case à cocher de l'écran de partie.
-Sans accord, rien ne part. L'envoi se fait vers une base Google Firebase (Firestore) hébergée en [région UE à compléter],
+Sans accord, rien ne part. L'envoi se fait vers une base Google Firebase (Firestore) hébergée en Europe (région Firestore « eur3 »),
 en écriture seule : les applications peuvent déposer une partie mais pas relire celles des autres.
 Les parties envoyées ne sont reliées à aucun compte ni à aucun autre service du même éditeur.
 
