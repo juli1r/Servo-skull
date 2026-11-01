@@ -11,7 +11,7 @@ import film
 import contribution
 import upload
 import lua_scripts as L
-from core import Session, TurnTracker, normalize_state, turn_label
+from core import Session, TurnTracker, normalize_state, phase_label, turn_label
 from tts_client import TTSClient, TTSError, TTSUnavailable
 
 
@@ -279,7 +279,23 @@ class Controller:
         if msg.get("servoSkull"):
             self._last_beat = time.monotonic()
             self._beats += 1
+            if msg.get("stale"):
+                self._on_stale(msg)
+                return
             self._events.put(msg)
+
+    def _on_stale(self, msg: dict):
+        """Phase inchangée depuis longtemps alors que beaucoup de figurines ont bougé : on prévient l'hôte."""
+        import json as _json
+        try:
+            info = _json.loads(msg.get("json") or "{}")
+        except ValueError:
+            info = {}
+        ph = phase_label((self.state or {}).get("phaseName")) if isinstance(self.state, dict) else ""
+        self._stale_alert = True
+        self.client.log(f"[phase] bloquée : {info}")
+        self.emit("alert", {"text": f"Phase « {ph or '?'} » depuis {info.get('minutes', '?')} min avec {info.get('drops', '?')} "
+                                    "déplacements : passez à la phase suivante, sinon le film regroupera tout."})
 
     def _event_worker(self):
         import json as _json
@@ -381,6 +397,9 @@ class Controller:
         self.state = st
         self.emit("state", st)
         burst = False   # plusieurs phases d'un coup (passées trop vite) : une seule lecture de la table
+        if getattr(self, "_stale_alert", False) and any(e[0] in ("phase_ended", "turn_changed") for e in events):
+            self._stale_alert = False
+            self.emit("alert_clear", None)
         for ev in events:
             kind = ev[0]
             mode = self.cfg.get("auto_capture", "phases")  # "phases", "movement" ou "off"

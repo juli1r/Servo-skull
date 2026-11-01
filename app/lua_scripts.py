@@ -356,7 +356,7 @@ return out
 """
 
 
-def watch_install(interval: float = 2.0, heartbeat_ticks: int = 30) -> str:
+def watch_install(interval: float = 2.0, heartbeat_ticks: int = 30, stale_drops: int = 15, stale_s: int = 240) -> str:
     """Veilleur Lua dans TTS (en mémoire) : regarde tour/phase toutes les `interval` s sans réseau,
     et ne prévient Servo-Skull (sendExternalMessage) que si ça change, + un signe de vie par minute.
     Les identifiants des minuteurs sont rangés dans le vrai Global (Global.setVar) pour pouvoir
@@ -383,6 +383,7 @@ end
 local last, beat = "", 0
 local __clk = (os ~= nil and os.clock) or function() return 0 end
 local tmax, tsum, tn = 0, 0, 0
+local since, staleSent = os.time(), false  -- depuis quand la phase est inchangée ; alerte déjà envoyée ?
 local id = Wait.time(function()
   local c0 = __clk()
   local ok, err = pcall(function()
@@ -392,6 +393,12 @@ local id = Wait.time(function()
       k = tostring(sm.getVar("currentTurn")) .. "|" .. tostring(sm.getVar("currentPhase")) .. "|" .. tostring(sm.getVar("inGame"))
     end
     beat = beat + 1
+    if k ~= last then since = os.time(); staleSent = false end
+    -- beaucoup de figurines posées, phase inchangée depuis longtemps : les joueurs ont sans doute oublié de passer la phase
+    if not staleSent and k ~= "?" and #SERVO_SKULL_DROPS >= {stale_drops} and os.time() - since >= {stale_s} then
+      staleSent = true
+      sendExternalMessage({{servoSkull = true, stale = true, json = JSON.encode({{drops = #SERVO_SKULL_DROPS, minutes = math.floor((os.time() - since) / 60)}})}})
+    end
     if k ~= last or beat >= {heartbeat_ticks} then
       local changed = (k ~= last)
       last = k

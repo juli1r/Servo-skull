@@ -687,6 +687,41 @@ def _doubt_names(g: dict, caps: list, names: dict) -> list:
     return out
 
 
+def shift_command_moves(caps: list[dict]) -> int:
+    """Les joueurs passent rarement la phase de Commandement : tout le mouvement est alors posé « pendant »
+    le Commandement (aucune règle ne permet pourtant de déplacer des figurines à ce moment). Quand au moins 4 unités
+    sont posées pendant cette phase et que la capture suivante est le Mouvement du même tour, on range ces
+    déplacements en phase de Mouvement : la capture de Commandement garde les positions d'avant, et les déplacements
+    (avec leur ordre) passent à la capture de Mouvement, annotée. Les données brutes ne sont pas modifiées."""
+    done = 0
+    for i, c in enumerate(caps):
+        if i == 0 or (c.get("endedPhase") or "") != "Command":
+            continue
+        drops = [d for d in (c.get("drops") or []) if isinstance(d, list) and d]
+        n = len({d[0] for d in drops})
+        nxt, prev = (caps[i + 1] if i + 1 < len(caps) else None), caps[i - 1]
+        if n < 4 or not nxt or (nxt.get("endedPhase") or "") != "Movement":
+            continue
+        if (nxt.get("round"), nxt.get("turn")) != (c.get("round"), c.get("turn")):
+            continue
+        if not prev.get("units") or not c.get("units"):
+            continue
+        before = {u[0]: u for u in prev["units"]}
+        rolled = []
+        for u in c["units"]:
+            q = before.get(u[0])
+            if q:
+                u = list(u)
+                u[4], u[5], u[6] = q[4], q[5], q[6]
+            rolled.append(u)
+        c["units"] = rolled
+        nxt["drops"] = (nxt.get("drops") or []) + drops
+        c["drops"] = []
+        nxt["shiftedFrom"] = n
+        done += 1
+    return done
+
+
 def collect(session: Session) -> dict:
     """Toutes les données du film (aussi utilisées pour le GIF)."""
     g = session.game
@@ -701,6 +736,7 @@ def collect(session: Session) -> dict:
                 c.update(reduce_snapshot(snap, board, cache))
         caps.append(c)
     split_squads(caps, board, session.dir / "units")
+    shift_command_moves(caps)
     names = squad_names(caps, session.dir / "units")
     for k in sorted(k for k in names if "#" in k):  # « Slaughterbound », « Slaughterbound (2) »
         if k.split("#")[0] in names and names[k] == names[k.split("#")[0]]:
