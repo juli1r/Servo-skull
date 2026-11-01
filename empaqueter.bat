@@ -29,7 +29,7 @@ if exist "%ZIP%" del "%ZIP%"
 powershell -NoProfile -Command "Compress-Archive -Path 'dist\Servo-Skull' -DestinationPath '%ZIP%'" || goto :err
 echo.
 echo OK : %ZIP%
-echo A envoyer a tes amis (ou a deposer dans GitLab > Deploy > Releases).
+echo A envoyer a tes amis (ou a deposer dans les Releases GitHub ou GitLab).
 pause
 exit /b 0
 :err

@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 import film
+import contribution
 import lua_scripts as L
 from core import Session, TurnTracker, normalize_state, turn_label
 from tts_client import TTSClient, TTSError, TTSUnavailable
@@ -221,6 +222,17 @@ class Controller:
                     pass
         if self.cfg.get("auto_gif", True):
             threading.Thread(target=make_gif, daemon=False).start()
+
+        def make_contribution():  # uniquement si l'utilisateur a accepté ; rien n'est envoyé nulle part
+            try:
+                contribution.export(sess)
+            except Exception as e:
+                try:
+                    (sess.dir / "contribution-erreur.txt").write_text(str(e), encoding="utf-8")
+                except OSError:
+                    pass
+        if self.cfg.get("contribution") == "oui":
+            threading.Thread(target=make_contribution, daemon=False).start()
         return out
 
     # ------------------------------------------------------------- polling

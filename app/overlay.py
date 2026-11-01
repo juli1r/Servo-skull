@@ -293,6 +293,13 @@ class Overlay:
             tk.Checkbutton(f, text="Avec capture d'écran (bouge ta caméra)", variable=self.v_photo, command=_toggle,
                            bg=BG, fg=MUTE, selectcolor=PANEL, activebackground=BG, activeforeground=INK,
                            font=FONT, anchor="w", highlightthickness=0, bd=0).pack(fill="x")
+        self.v_contrib = tk.BooleanVar(value=self.cfg.get("contribution") == "oui")
+        def _toggle_contrib():
+            self.cfg["contribution"] = "oui" if self.v_contrib.get() else "non"
+            self.save_cfg(self.cfg)
+        tk.Checkbutton(f, text="Créer un fichier anonyme pour les stats (rien n'est envoyé)", variable=self.v_contrib,
+                       command=_toggle_contrib, bg=BG, fg=MUTE, selectcolor=PANEL, activebackground=BG,
+                       activeforeground=INK, font=FONT, anchor="w", highlightthickness=0, bd=0).pack(fill="x")
         tk.Frame(f, bg=BORDER, height=1).pack(fill="x", pady=(8, 8))
         bot = tk.Frame(f, bg=BG)
         bot.pack(fill="x")
@@ -699,5 +706,37 @@ class Overlay:
             self.ctl.stop_watch()
         self.root.destroy()
 
+    def _consent_dialog(self):
+        """Premier lancement : demande séparée, jamais liée à l'usage du logiciel. « Non » est le choix par défaut."""
+        win = tk.Toplevel(self.root, bg=BG, padx=16, pady=12)
+        win.title("Statistiques anonymes (facultatif)")
+        win.attributes("-topmost", True)
+        win.transient(self.root)
+
+        def choose(v):
+            self.cfg["contribution"] = v
+            self.save_cfg(self.cfg)
+            if hasattr(self, "v_contrib"):
+                self.v_contrib.set(v == "oui")
+            win.destroy()
+        txt = ("Servo-Skull fonctionne exactement pareil que tu acceptes ou non.\n\n"
+               "Si tu acceptes, à la fin de chaque partie, un petit fichier ANONYME est créé dans le dossier de la\n"
+               "partie : composition des armées, mission, plan de table, positions et scores.\n"
+               "Les pseudos sont remplacés par « Joueur A » et « Joueur B » ; aucune capture d'écran, aucun nom\n"
+               "de dossier, aucun identifiant de ton PC. Tu peux ouvrir le fichier (contribution.json) pour le lire.\n\n"
+               "RIEN n'est envoyé automatiquement. Si un envoi existe un jour, il te sera proposé à part,\n"
+               "avec ton accord avant chaque partage. Tu peux changer d'avis à tout moment avec la case à cocher\n"
+               "de l'écran de partie. Détails : CONFIDENTIALITE.md.")
+        tk.Label(win, text=txt, bg=BG, fg=INK, font=FONT, justify="left").pack(anchor="w", pady=(0, 10))
+        row = tk.Frame(win, bg=BG)
+        row.pack(fill="x")
+        no = self._btn(row, "Non merci", lambda: choose("non"), kind="primary")
+        no.pack(side="left", ipadx=8)
+        self._btn(row, "J'accepte", lambda: choose("oui")).pack(side="left", padx=8, ipadx=8)
+        win.protocol("WM_DELETE_WINDOW", lambda: choose("non"))
+        no.focus_set()
+
     def run(self):
+        if self.cfg.get("contribution") not in ("oui", "non"):
+            self.root.after(600, self._consent_dialog)
         self.root.mainloop()
