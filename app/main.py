@@ -23,6 +23,8 @@ DEFAULTS = {
     "watch_interval_s": 0.5,         # le veilleur, dans TTS, regarde tour/phase à ce rythme (sans réseau)
     "watchdog_s": 10.0,
     "watch_timeout_s": 90.0,
+    "stale_minutes": 8,               # alerte "phase bloquée" seulement après ce délai sans changement de phase
+    "stale_drops": 25,                # ...et seulement si au moins ce nombre de figurines ont été posées entre-temps
     "debug_dump": False,
     "verbose_log": False,
     "auto_capture_after_movement": True,

@@ -333,7 +333,9 @@ class Controller:
                 self.emit("error", f"Traitement de l'état : {e}")
 
     def _install_watch(self) -> dict:
-        st = self.client.run_lua(L.watch_install(self.cfg.get("watch_interval_s", 2.0)), timeout=5)
+        st = self.client.run_lua(L.watch_install(self.cfg.get("watch_interval_s", 2.0),
+                                                  stale_drops=self.cfg.get("stale_drops", 25),
+                                                  stale_s=int(self.cfg.get("stale_minutes", 8) * 60)), timeout=5)
         self._last_beat = time.monotonic()
         return st
 

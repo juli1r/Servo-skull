@@ -55,6 +55,8 @@ TTS n'exécute les scripts que chez l'hôte. Le programme le détecte et bascule
 | `hotkey` | Raccourci de capture (`f8`, `ctrl+shift+c`…) | f8 |
 | `auto_capture_after_movement` | Capture auto en fin de Mouvement | true |
 | `alert_scope` | `all` = alerte sur tous les tours, `mine` = seulement les tiens | all |
+| `stale_minutes` | Délai sans changement de phase avant l'alerte « phase bloquée » | 8 |
+| `stale_drops` | Nombre de figurines posées minimum pour déclencher cette alerte | 25 |
 | `replays_dir` | Dossier des parties | `parties` à côté du programme |
 | `red_positive_z` | Côté Rouge de la table (à inverser seulement si le plan est à l'envers) | true |
 
