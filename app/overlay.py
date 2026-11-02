@@ -187,9 +187,28 @@ class Overlay:
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x")
         return h
 
+    def _update_label(self, parent):
+        lbl = tk.Label(parent, text="", bg=BG, fg=CYAN, font=FONT, cursor="hand2",
+                       wraplength=330, justify="left", padx=10, pady=4)
+        lbl.bind("<Button-1>", lambda e: self._open_update())
+        self.lbl_update = lbl
+        self._apply_update_banner()
+
+    def _apply_update_banner(self):
+        info = getattr(self, "_update_info", None)
+        if info and hasattr(self, "lbl_update") and self.lbl_update.winfo_exists():
+            self.lbl_update.config(text=f"↑ Servo-Skull v{info['version']} disponible — clique pour la page de téléchargement")
+            self.lbl_update.pack(fill="x")
+
+    def _open_update(self):
+        info = getattr(self, "_update_info", None)
+        if info:
+            webbrowser.open(info["url"])
+
     def _build_start(self):
         self._clear()
         self._header(self.root, f"nouvelle partie · v{VERSION}")
+        self._update_label(self.root)
         f = tk.Frame(self.root, bg=BG, padx=14, pady=14)
         f.pack(fill="both")
         tk.Label(f, text="Quelle couleur joues-tu ?", bg=BG, fg=INK, font=FONT_H).pack(anchor="w")
@@ -244,6 +263,7 @@ class Overlay:
         self.lbl_count.pack(side="right", padx=(8, 4))
         tk.Label(bar, text="CAPT.", bg=PANEL, fg=FAINT, font=FONT_MONO).pack(side="right")
         tk.Frame(self.root, bg=BORDER, height=1).pack(fill="x")
+        self._update_label(self.root)
         # ligne d'état : visible seulement s'il y a quelque chose d'important à dire
         self.lbl_status = tk.Label(self.root, text="", fg=MUTE, bg=BG, font=FONT, anchor="w", wraplength=330,
                                    justify="left", padx=10)
@@ -631,6 +651,9 @@ class Overlay:
                     who = (pl.get(c) or COLOR_FR[c]).upper() + (" · MOI" if c == me else "")
                     self.sc[c][0].config(text=who)
                     self.sc[c][1].config(text=str(vp.get(c, "–")) if vp.get(c) is not None else "–")
+        elif ev == "update":
+            self._update_info = p
+            self._apply_update_banner()
         elif ev == "alert" and hasattr(self, "alert"):
             self.alert_lbl.config(text=f"⚠  {p['text']}")
             self.alert.pack(fill="x", padx=8, pady=(6, 6), before=self.alert_anchor)

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -123,6 +124,14 @@ def main():
     ui = Overlay(cfg, save_cfg, lambda ui: Controller(cfg, client, make_screenshotter(), ui))
     if start_error:
         ui.emit("error", start_error)
+
+    def _check_update():
+        import update_check
+        info = update_check.check(VERSION)
+        if info:
+            ui.emit("update", info)
+    threading.Thread(target=_check_update, daemon=True).start()
+
     try:
         import local_api
         local_api.start(Path(cfg["replays_dir"]), ui.request_restore, log=client.log)
