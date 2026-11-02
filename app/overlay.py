@@ -205,10 +205,32 @@ class Overlay:
         if info:
             webbrowser.open(info["url"])
 
+    def _unfinished_label(self, parent):
+        lbl = tk.Label(parent, text="", bg=BG, fg=AMBER, font=FONT, cursor="hand2",
+                       wraplength=330, justify="left", padx=10, pady=4)
+        lbl.bind("<Button-1>", lambda e: self._dismiss_unfinished())
+        self.lbl_unfinished = lbl
+        self._apply_unfinished_banner()
+
+    def _apply_unfinished_banner(self):
+        info = getattr(self, "_unfinished_info", None)
+        if info and hasattr(self, "lbl_unfinished") and self.lbl_unfinished.winfo_exists():
+            self.lbl_unfinished.config(
+                text=f"⚠ La partie « {info['name']} » ne s'est pas terminée normalement "
+                     f"({info['captures']} capture(s) enregistrée(s)) — son score/film peut être incomplet. "
+                     "Clique pour masquer.")
+            self.lbl_unfinished.pack(fill="x")
+
+    def _dismiss_unfinished(self):
+        self._unfinished_info = None
+        if hasattr(self, "lbl_unfinished") and self.lbl_unfinished.winfo_exists():
+            self.lbl_unfinished.pack_forget()
+
     def _build_start(self):
         self._clear()
         self._header(self.root, f"nouvelle partie · v{VERSION}")
         self._update_label(self.root)
+        self._unfinished_label(self.root)
         f = tk.Frame(self.root, bg=BG, padx=14, pady=14)
         f.pack(fill="both")
         tk.Label(f, text="Quelle couleur joues-tu ?", bg=BG, fg=INK, font=FONT_H).pack(anchor="w")
@@ -264,6 +286,7 @@ class Overlay:
         tk.Label(bar, text="CAPT.", bg=PANEL, fg=FAINT, font=FONT_MONO).pack(side="right")
         tk.Frame(self.root, bg=BORDER, height=1).pack(fill="x")
         self._update_label(self.root)
+        self._unfinished_label(self.root)
         # ligne d'état : visible seulement s'il y a quelque chose d'important à dire
         self.lbl_status = tk.Label(self.root, text="", fg=MUTE, bg=BG, font=FONT, anchor="w", wraplength=330,
                                    justify="left", padx=10)
@@ -654,6 +677,9 @@ class Overlay:
         elif ev == "update":
             self._update_info = p
             self._apply_update_banner()
+        elif ev == "unfinished":
+            self._unfinished_info = p
+            self._apply_unfinished_banner()
         elif ev == "alert" and hasattr(self, "alert"):
             self.alert_lbl.config(text=f"⚠  {p['text']}")
             self.alert.pack(fill="x", padx=8, pady=(6, 6), before=self.alert_anchor)

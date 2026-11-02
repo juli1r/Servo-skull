@@ -370,6 +370,28 @@ def _slug(s: str) -> str:
     return s[:40] or "x"
 
 
+def find_unfinished_session(root: Path) -> dict | None:
+    """Démarrage : la dernière partie du dossier n'a jamais été marquée « terminée »
+    (fermeture anormale de l'outil, perte de connexion TTS…) — on prévient l'hôte
+    plutôt que de laisser un film/score tronqué passer inaperçu."""
+    try:
+        folders = sorted((d for d in root.iterdir() if (d / "game.json").exists()),
+                         key=lambda d: d.stat().st_mtime, reverse=True)
+    except OSError:
+        return None
+    if not folders:
+        return None
+    d = folders[0]
+    try:
+        g = json.loads((d / "game.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if g.get("finished") or not g.get("captures"):
+        return None
+    last = g["captures"][-1]
+    return {"dir": str(d), "name": d.name, "captures": len(g["captures"]), "last_round": last.get("turnKey")}
+
+
 class Session:
     def __init__(self, root: Path, my_color: str, mode: str, players: dict | None = None,
                  red_positive_z: bool = True):

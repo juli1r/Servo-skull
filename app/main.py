@@ -112,8 +112,9 @@ def main():
     cfg = load_cfg()
     client = TTSClient(log_path=app_dir() / "servo-skull.log")
     client.verbose = bool(cfg.get("verbose_log"))
-    from core import VERSION
+    from core import VERSION, find_unfinished_session
     client.log(f"Servo-Skull v{VERSION} démarré ({'exe' if getattr(sys, 'frozen', False) else 'lancer.bat'})")
+    unfinished = find_unfinished_session(Path(cfg["replays_dir"]))
     start_error = None
     try:
         client.start()
@@ -124,6 +125,8 @@ def main():
     ui = Overlay(cfg, save_cfg, lambda ui: Controller(cfg, client, make_screenshotter(), ui))
     if start_error:
         ui.emit("error", start_error)
+    if unfinished:
+        ui.emit("unfinished", unfinished)
 
     def _check_update():
         import update_check
