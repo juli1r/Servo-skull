@@ -9,6 +9,7 @@ from pathlib import Path
 
 import film
 import contribution
+import cogitator_export
 import upload
 import lua_scripts as L
 from core import Session, TurnTracker, normalize_state, phase_label, turn_label
@@ -207,6 +208,13 @@ class Controller:
             return None
         self.session.finish()
         out = film.build(self.session)
+        try:
+            cogitator_export.export(self.session)
+        except Exception as e:
+            try:
+                (self.session.dir / "cogitator-export-erreur.txt").write_text(str(e), encoding="utf-8")
+            except OSError:
+                pass
         sess = self.session
         self.session = None
 
