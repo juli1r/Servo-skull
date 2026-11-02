@@ -37,6 +37,7 @@ td:first-child{white-space:normal}
 .n{text-align:right}tr.sel td{background:rgba(255,107,71,.14)}
 td button.link{height:auto;border:0;padding:0;color:var(--t1);text-align:left;text-decoration:underline dotted;cursor:pointer}
 .bar{display:inline-block;height:10px;border-radius:2px;vertical-align:middle;margin-right:8px}
+.low{color:var(--t2);opacity:.75}
 .badge{font-size:10px;color:var(--amber);border:1px solid var(--amber);border-radius:99px;padding:0 7px;margin-left:6px;white-space:nowrap}
 .mx td,.mx th{text-align:center;border:1px solid var(--bg2)}.mx td:first-child,.mx th:first-child{text-align:left}
 .legend{display:flex;gap:16px;color:var(--t2);font-size:12px}.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
@@ -73,7 +74,7 @@ footer{color:var(--t2);font-size:12px;border-top:1px solid var(--border);padding
 <section class="kpis" id="kpis"></section>
 
 <div class="row">
-<section class="card"><h2>Win rate par faction</h2><p class="muted">Intervalle de Wilson à 95 %. Le badge signale moins de <span class="minr"></span> parties. Clique une faction pour la filtrer.</p><div class="scroll" id="t_fac"></div></section>
+<section class="card"><h2>Win rate par faction</h2><p class="muted">Intervalle de Wilson à 95 %. En gris : moins de <span class="minr"></span> parties, à lire comme un ordre de grandeur. Clique une faction pour la filtrer.</p><div class="scroll" id="t_fac"></div></section>
 <section class="card"><h2>Win rate par disposition</h2><p class="muted">Vu du joueur qui joue la disposition.</p><div class="scroll" id="t_dis"></div></section>
 </div>
 <div class="row">
@@ -129,9 +130,9 @@ function selects(){
 function rateTable(host,rows,key,clickable){host.replaceChildren();if(!rows.length){host.append(el('p',{class:'empty',text:'Aucune partie pour ces filtres.'}));return;}
  var t=el('table'),hd=el('tr');['Nom','Parties','V','Win rate','Intervalle','PV moy.'].forEach(function(h,i){hd.append(el('th',{text:h==='Nom'?(key==='faction'?'Faction':'Disposition'):h,class:i===1||i===2||i>=4?'n':''}));});t.append(el('thead',{},[hd]));
  var tb=el('tbody');rows.forEach(function(r){var tr=el('tr',{class:(key==='faction'&&S.faction===r.name)||(key==='dispo'&&S.dispo===r.name)?'sel':''});
-  var td0=el('td');if(clickable){var b=el('button',{type:'button',class:'link',text:r.name});b.onclick=function(){S[key]=S[key]===r.name?'':r.name;if(key==='faction')S.opp='';update(true);};td0.append(b);}else td0.textContent=r.name;if(r.games<MIN)td0.append(badge());
-  var tw=el('td');tw.append(el('span',{class:'bar',style:'width:'+Math.max(4,r.rate*1.2)+'px;background:'+(r.rate<50?'var(--coral)':'var(--cyan)')}),document.createTextNode(r.rate+' %'));
-  tr.append(td0,el('td',{class:'n',text:r.games}),el('td',{class:'n',text:r.wins}),tw,el('td',{class:'n',text:r.lo+'–'+r.hi+' %'}),el('td',{class:'n',text:f1(r.avg)}));tb.append(tr);});
+  var td0=el('td');if(clickable){var b=el('button',{type:'button',class:'link',text:r.name});b.onclick=function(){S[key]=S[key]===r.name?'':r.name;if(key==='faction')S.opp='';update(true);};td0.append(b);}else td0.textContent=r.name;
+  var low=r.games<MIN,tw=el('td',{class:low?'low':''});tw.append(el('span',{class:'bar',style:'width:'+Math.max(4,r.rate*1.2)+'px;background:'+(low?'var(--t2)':(r.rate<50?'var(--coral)':'var(--cyan)'))}),document.createTextNode(r.rate+' %'));
+  tr.append(td0,el('td',{class:'n',text:r.games}),el('td',{class:'n',text:r.wins}),tw,el('td',{class:'n'+(low?' low':''),text:r.lo+'–'+r.hi+' %'}),el('td',{class:'n',text:f1(r.avg)}));tb.append(tr);});
  t.append(tb);host.append(t);}
 
 function tipShow(ev,lines){var t=$('tip');t.replaceChildren();lines.forEach(function(l){t.append(el('div',{text:l}));});t.style.display='block';var x=ev.clientX+14,y=ev.clientY+14;if(x+t.offsetWidth>innerWidth-8)x=ev.clientX-t.offsetWidth-14;t.style.left=Math.max(4,x)+'px';t.style.top=y+'px';}

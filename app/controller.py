@@ -9,6 +9,7 @@ from pathlib import Path
 
 import film
 import contribution
+import cogitator_export
 import upload
 import lua_scripts as L
 from core import Session, TurnTracker, normalize_state, phase_label, turn_label
@@ -207,6 +208,13 @@ class Controller:
             return None
         self.session.finish()
         out = film.build(self.session)
+        try:
+            cogitator_export.export(self.session)
+        except Exception as e:
+            try:
+                (self.session.dir / "cogitator-export-erreur.txt").write_text(str(e), encoding="utf-8")
+            except OSError:
+                pass
         sess = self.session
         self.session = None
 
@@ -325,7 +333,9 @@ class Controller:
                 self.emit("error", f"Traitement de l'état : {e}")
 
     def _install_watch(self) -> dict:
-        st = self.client.run_lua(L.watch_install(self.cfg.get("watch_interval_s", 2.0)), timeout=5)
+        st = self.client.run_lua(L.watch_install(self.cfg.get("watch_interval_s", 2.0),
+                                                  stale_drops=self.cfg.get("stale_drops", 25),
+                                                  stale_s=int(self.cfg.get("stale_minutes", 8) * 60)), timeout=5)
         self._last_beat = time.monotonic()
         return st
 

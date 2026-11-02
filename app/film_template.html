@@ -222,7 +222,12 @@ header{padding:5px 20px}.final .vp{font-size:22px}.brand{font-size:15px}header #
 .foot button,.foot select{min-height:44px}.foot #bPlay{min-width:0}.foot #speed{width:100%}
 .foot #sNext{grid-column:1/3;min-height:40px}.foot #bTTS{grid-column:3/5;min-height:40px;white-space:nowrap}
 .foot .srow{grid-column:1/-1;display:flex;align-items:center;gap:8px;min-height:36px}.foot .srow .who{flex:1;min-width:0;font:400 13px/1.3 var(--body);color:var(--t2);white-space:normal}
-.foot .srow #sReset{min-height:36px;padding:4px 10px}.foot .srow #bGif{min-height:36px;border:0;background:none;color:var(--t2);padding:4px 2px}.foot .srow #bGif:hover:not(:disabled){color:var(--t1);background:none}
+.foot .srow #sReset{min-height:36px;padding:4px 10px}.foot .srow #bGif{min-height:36px;border:0;background:none;color:var(--t2);padding:4px 2px}.foot .srow #bGif:hover:not(:disabled){color:var(--t1);background:none}.foot .srow #bDisc{min-height:36px;border:0;background:none;color:var(--t2);padding:4px 2px}.foot .srow #bDisc:hover:not(:disabled){color:var(--t1);background:none}
+#dlg{background:var(--bg1);color:var(--t1);border:1px solid var(--border2);border-radius:10px;padding:18px 20px;width:min(480px,92vw)}#dlg::backdrop{background:rgba(0,0,0,.65)}
+#dlg h3{margin:0 0 12px;font:700 20px var(--cond);letter-spacing:.06em;text-transform:uppercase}#dlg label{display:block;margin:10px 0 4px;font:600 12px var(--body);color:var(--t2)}
+#dlg input[type=password],#dlg input[type=text],#dlg textarea{width:100%;box-sizing:border-box;background:var(--bg0);color:var(--t1);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font:500 13px var(--body)}#dlg textarea{min-height:84px;resize:vertical}
+#dlg .opts{display:grid;gap:6px;margin-top:4px}#dlg .opts label{display:flex;gap:8px;align-items:center;margin:0;color:var(--t1);font:500 13px var(--body)}#dlg .opts label.off{opacity:.4}
+#dlg .row{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:16px}#dlg .st{min-height:18px;margin-top:10px;font:500 12px var(--body);color:var(--t2)}#dlg .st.err{color:var(--red)}#dlg .st.ok{color:var(--green)}#dlg .note{font:500 11px var(--body);color:var(--t3);margin-top:4px}
 @media (max-width:1100px){.rail{position:static;order:-1;width:auto;max-height:none;flex-direction:row;overflow-x:auto;overflow-y:hidden;border-radius:0;border-width:0 0 1px}
  .rg{flex-direction:row;align-items:center}.rg+.rg{border-top:0;border-left:1px solid var(--border);padding:0 0 0 8px}.rl{display:none}.tile{width:58px}}
 /* ---- audit UX/UI : lisibilité, cibles, focus ---- */
@@ -259,6 +264,18 @@ details.more>summary,details.pdet>summary,details.secs summary{min-height:36px;d
   <div class="grow"></div>
   <button id="bGame" class="go" title="Rejoue toute la partie, phase par phase, depuis le début (espace pour mettre en pause)">▶ Lire la partie</button>
 </header>
+<dialog id="dlg" aria-labelledby="dT"><form method="dialog" id="dForm" onsubmit="return false">
+  <h3 id="dT">Poster sur Discord</h3>
+  <label for="dUrl">URL du webhook du salon</label>
+  <input id="dUrl" type="password" autocomplete="off" spellcheck="false" placeholder="https://discord.com/api/webhooks/…">
+  <div class="note">Salon Discord → Modifier le salon → Intégrations → Webhooks. Gardée uniquement dans ce navigateur : ne la partage pas, quiconque la possède peut poster dans le salon.</div>
+  <label for="dMsg">Message</label>
+  <textarea id="dMsg" maxlength="2000"></textarea>
+  <label>Pièce jointe</label>
+  <div class="opts"><label><input type="radio" name="dk" value="game" checked> GIF de la partie</label><label id="dkTurnL"><input type="radio" name="dk" value="turn" id="dkTurn"> <span id="dkTurnT">GIF du tour</span></label><label><input type="radio" name="dk" value="plan"> Plan du moment affiché (image)</label><label><input type="radio" name="dk" value="text"> Aucune (texte seul)</label></div>
+  <div class="st" id="dSt" role="status"></div>
+  <div class="row"><button type="button" id="dForget" class="lnk" title="Efface l'URL gardée dans ce navigateur">Oublier l'URL</button><button type="button" id="dClose">Fermer</button><button type="button" id="dSend" class="go">Envoyer</button></div>
+</form></dialog>
 <div id="cardpop" role="tooltip"><h4></h4><img alt=""><p></p><div class="src"></div></div>
 <nav id="tabs" role="tablist" aria-label="Rounds"></nav>
 <div class="work">
@@ -269,7 +286,7 @@ details.more>summary,details.pdet>summary,details.secs summary{min-height:36px;d
     <div class="rail" id="rail" role="toolbar" aria-label="Outils du plan"><div class="rg" role="group" aria-label="Flèches de déplacement"><span class="rl">Flèches</span><button id="aPrev" class="tile on" title="Flèches des déplacements faits pendant cette phase"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19L19 5M10 5h9v9"/></svg><span>Phase</span></button><button id="aTurn" class="tile" title="Toutes les flèches depuis le début du tour"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14L14 4M9 4h5v5M10 20l10-10M15 10h5v5"/></svg><span>Tour</span></button><button id="aNone" class="tile" title="Masquer les flèches"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M6.5 6.5l11 11"/></svg><span>Aucune</span></button></div><div class="rg" role="group" aria-label="Mesurer et dessiner"><span class="rl">Dessiner</span><button id="tRule" class="tile" title="Règle : glisse sur le plan. Partir d'une unité ou d'un objectif mesure bord à bord (R)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16L16 4l4 4L8 20z"/><path d="M8 12l2 2M11 9l2 2M14 6l2 2"/></svg><span>Règle</span></button><button id="tDraw" class="tile" title="Tracer des traits sur ce moment, gardés dans ce navigateur (T)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4L16 5l3 3L8 19z"/></svg><span>Tracer</span></button><button id="tClear" class="tile" title="Effacer les traits de ce moment"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12"/></svg><span>Effacer</span></button></div><div class="rg" role="group" aria-label="Affichage"><span class="rl">Affichage</span><button id="bNames" class="tile on" title="Noms des unités (N)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h13"/></svg><span>Noms</span></button><button id="bRot" class="tile" title="Retourne le plan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-3-6.2M20 4v5h-5"/></svg><span>Pivoter</span></button><button id="bShot" class="tile" title="Capture d'écran de ce moment, s'il y en a une"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Photo</span></button></div></div>
     </div>
   </main>
-  <aside class="panel" id="panel" aria-label="Ce qui se passe"><div class="pscroll" id="pscroll"></div><section class="foot" aria-label="Lecture"><button id="bPrev" title="Phase précédente (←)" aria-label="Phase précédente">◀</button><button id="bPlay" class="play" title="Lecture (espace)">▶ Lire</button><button id="bNext" title="Phase suivante (→)" aria-label="Phase suivante">▶</button><select id="speed" title="Vitesse de lecture" aria-label="Vitesse"><option value="5000">Lent</option><option value="2800" selected>Normal</option><option value="1400">Rapide</option></select><button id="sNext" class="go" title="Fait bouger l'unité suivante, dans l'ordre où elles ont été posées (→ ou U)">Unité suivante ▶</button><button id="bTTS" class="act" title="Remet la table de TTS dans l'état de ce moment (Servo-Skull doit tourner ; une confirmation s'affiche dans l'overlay)">↺ Rejouer dans TTS</button><div class="srow" id="stepbar"><button id="sReset" title="Remettre toutes les unités au début de la phase">⏮</button><span class="who" id="sWho"></span><button id="bGif" class="act" title="GIF animé du plan, phase par phase (toute la partie)">GIF de la partie</button></div></section></aside>
+  <aside class="panel" id="panel" aria-label="Ce qui se passe"><div class="pscroll" id="pscroll"></div><section class="foot" aria-label="Lecture"><button id="bPrev" title="Phase précédente (←)" aria-label="Phase précédente">◀</button><button id="bPlay" class="play" title="Lecture (espace)">▶ Lire</button><button id="bNext" title="Phase suivante (→)" aria-label="Phase suivante">▶</button><select id="speed" title="Vitesse de lecture" aria-label="Vitesse"><option value="5000">Lent</option><option value="2800" selected>Normal</option><option value="1400">Rapide</option></select><button id="sNext" class="go" title="Fait bouger l'unité suivante, dans l'ordre où elles ont été posées (→ ou U)">Unité suivante ▶</button><button id="bTTS" class="act" title="Remet la table de TTS dans l'état de ce moment (Servo-Skull doit tourner ; une confirmation s'affiche dans l'overlay)">↺ Rejouer dans TTS</button><div class="srow" id="stepbar"><button id="sReset" title="Remettre toutes les unités au début de la phase">⏮</button><span class="who" id="sWho"></span><button id="bGif" class="act" title="GIF animé du plan, phase par phase (toute la partie)">GIF de la partie</button><button id="bDisc" class="act" title="Poster un message, un GIF ou le plan sur un salon Discord (webhook)">Discord</button></div></section></aside>
 </div>
 <script>
 const D=/*__DATA__*/null;
@@ -755,7 +772,7 @@ function svgImage(w,h){const svg=$("board").cloneNode(true);svg.setAttribute("xm
   const st=document.createElementNS("http://www.w3.org/2000/svg","style");st.textContent=".lbl{paint-order:stroke;stroke:#080b10;stroke-width:.34px;stroke-linejoin:round}";svg.insertBefore(st,svg.firstChild);
   const url="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(new XMLSerializer().serializeToString(svg));
   return new Promise((ok,ko)=>{const im=new Image();im.onload=()=>ok(im);im.onerror=ko;im.src=url})}
-async function exportGif(btnArg){const btn=btnArg||$("bGif"),btnLabel=btn.textContent,keep=i;stepN=0;stepAnim=null;const ks=visible().filter(k=>C[k].units);
+async function makeGif(btnArg){const btn=btnArg||$("bGif"),btnLabel=btn.textContent,keep=i;stepN=0;stepAnim=null;const ks=visible().filter(k=>C[k].units);
   if(!ks.length)return;btn.disabled=true;stop();
   const w=960,ph=Math.round(w*(H+2*PAD)/(W+2*PAD)),bar=54,h=ph+bar;const cv=document.createElement("canvas");cv.width=w;cv.height=h;const cx=cv.getContext("2d");
   const frames=[],delays=[];
@@ -773,11 +790,49 @@ async function exportGif(btnArg){const btn=btnArg||$("bGif"),btnLabel=btn.textCo
       frames.push(cx.getImageData(0,0,w,h).data);delays.push(n===ks.length-1?gifMs*2:gifMs)}
     btn.textContent="GIF : encodage…";await new Promise(r=>setTimeout(r,30));
     buildPalette(frames);const idx=frames.map(quantize);
-    const blob=new Blob([gif(idx,w,h,delays)],{type:"image/gif"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);
-    a.download=`servo-skull_${(D.created||"").slice(0,10)}${focus!==null?"_T"+TURNS[focus].round+"-"+(TURNS[focus].turn===me?"moi":"adv"):""}.gif`;document.body.appendChild(a);a.click();a.remove();
-  }catch(e){flash("Export GIF impossible : "+e)}
+    const blob=new Blob([gif(idx,w,h,delays)],{type:"image/gif"});
+    return {blob,name:`servo-skull_${(D.created||"").slice(0,10)}${focus!==null?"_T"+TURNS[focus].round+"-"+(TURNS[focus].turn===me?"moi":"adv"):""}.gif`};
+  }catch(e){flash("Export GIF impossible : "+e);return null}
   finally{i=keep;btn.textContent=btnLabel;btn.disabled=false;render()}}
+async function exportGif(btnArg){const r=await makeGif(btnArg);if(!r)return;
+  const a=document.createElement("a");a.href=URL.createObjectURL(r.blob);a.download=r.name;document.body.appendChild(a);a.click();a.remove()}
 $("bGif").onclick=()=>exportGif();
+// ---------- poster sur Discord (webhook du salon ; appel direct depuis le navigateur, rien ne passe par TTS) ----------
+const DKEY="servo-skull.discord.webhook",DRE=/^https:\/\/(?:(?:canary|ptb)\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
+const dGet=()=>{try{return localStorage.getItem(DKEY)||""}catch(e){return ""}};
+const dSet=v=>{try{v?localStorage.setItem(DKEY,v):localStorage.removeItem(DKEY)}catch(e){}};
+function dStat(m,k){const e=$("dSt");e.textContent=m;e.className="st"+(k?" "+k:"")}
+function dText(){const vp=(C[C.length-1]||{}).vp||{};return `**${name(me)}** ${vp[me]??"–"} – ${vp[OTHER[me]]??"–"} **${name(OTHER[me])}**\n${$("meta").textContent}`}
+async function planPng(){const w=960,ph=Math.round(w*(H+2*PAD)/(W+2*PAD)),cv=document.createElement("canvas");cv.width=w;cv.height=ph;const cx=cv.getContext("2d");
+  cx.fillStyle="#080b10";cx.fillRect(0,0,w,ph);cx.drawImage(await svgImage(w,ph),0,0,w,ph);
+  return {blob:await new Promise(ok=>cv.toBlob(ok,"image/png")),name:`servo-skull_${(D.created||"").slice(0,10)}_plan.png`}}
+function openDisc(){const t=focus!==null?TURNS[focus]:null;
+  $("dUrl").value=dGet();$("dMsg").value=dText();dStat("");
+  $("dkTurn").disabled=!t;$("dkTurnL").classList.toggle("off",!t);
+  $("dkTurnT").textContent=t?`GIF du tour ${t.round} (${t.turn===me?"mon tour":"tour adverse"})`:"GIF du tour (d'abord « Revoir ce tour » dans la liste)";
+  if(!t&&$("dkTurn").checked)document.querySelector('input[name=dk][value=game]').checked=true;
+  $("dlg").showModal()}
+async function sendDisc(){const url=$("dUrl").value.trim(),btn=$("dSend"),kind=document.querySelector("input[name=dk]:checked").value,msg=$("dMsg").value.trim();
+  if(!DRE.test(url)){dStat("URL de webhook invalide : elle doit ressembler à https://discord.com/api/webhooks/123…/abc…","err");return}
+  if(kind==="text"&&!msg){dStat("Rien à envoyer : écris un message ou choisis une pièce jointe.","err");return}
+  dSet(url);btn.disabled=true;dStat("Préparation…");
+  try{let file=null;
+    if(kind==="game"||kind==="turn"){const keep=focus;if(kind==="game")focus=null;try{file=await makeGif(btn)}finally{focus=keep}
+      if(!file){dStat("Le GIF n'a pas pu être généré.","err");return}}
+    else if(kind==="plan")file=await planPng();
+    dStat(file?`Envoi (${(file.blob.size/1048576).toFixed(1)} Mo)…`:"Envoi…");
+    const fd=new FormData();fd.append("payload_json",JSON.stringify({content:msg.slice(0,2000),username:"Servo-Skull",allowed_mentions:{parse:[]}}));
+    if(file)fd.append("files[0]",file.blob,file.name);
+    const r=await fetch(url+"?wait=true",{method:"POST",body:fd});
+    if(r.ok)dStat("Posté sur Discord.","ok");
+    else if(r.status===413)dStat(`Fichier trop lourd pour ce serveur Discord (${file?(file.blob.size/1048576).toFixed(1):0} Mo) : essaie « GIF du tour » ou l'image du plan.`,"err");
+    else if(r.status===404||r.status===401)dStat("Webhook introuvable : il a été supprimé ou l'URL est incomplète.","err");
+    else if(r.status===429){const j=await r.json().catch(()=>({}));dStat(`Discord demande d'attendre ${Math.ceil(j.retry_after||5)} s avant de réessayer.`,"err")}
+    else dStat(`Discord a refusé l'envoi (${r.status}).`,"err")}
+  catch(e){dStat("Envoi impossible (réseau ?) : "+e,"err")}
+  finally{btn.disabled=false;btn.textContent="Envoyer"}}
+$("bDisc").onclick=openDisc;$("dClose").onclick=()=>$("dlg").close();$("dSend").onclick=sendDisc;
+$("dForget").onclick=()=>{dSet("");$("dUrl").value="";dStat("URL oubliée.")};
 document.addEventListener("click",e=>{const t=$("tools");if(t&&t.open&&!t.contains(e.target))t.open=false});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){const t=$("tools");if(t&&t.open)t.open=false}});
 // ---------- rejouer ce moment dans TTS (serveur local de Servo-Skull) ----------
