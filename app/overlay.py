@@ -839,7 +839,7 @@ class Overlay:
             if hasattr(self, "score") and self.score.winfo_exists():
                 # pas de tirets vides avant qu'il y ait un vrai score à montrer
                 if vp.get("Red") is not None or vp.get("Blue") is not None:
-                    self.score.pack(side="right")
+                    self.score.pack(side="right", padx=(0, 12))
                 else:
                     self.score.pack_forget()
                 self._relayout()
