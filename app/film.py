@@ -280,7 +280,11 @@ def _official(terrain: list, cache: dict) -> None:
     ("foot") par les 16 empreintes officielles du layout, telles quelles, contour réel du PDF
     (t[7] = liste de points, pas un rectangle). Les décors nommés gardent leur géométrie TTS
     mesurée ; les pièces TTS brutes ne servent plus qu'à l'identification (fit_layout/overlap
-    ci-dessus), jamais au tracé une fois le layout confirmé."""
+    ci-dessus), jamais au tracé une fois le layout confirmé. Leur position/taille TTS reste
+    cependant approximative (pivot pas toujours au centre, bornes qui débordent) : pour ne jamais
+    afficher de débordement (règle stricte du projet), chaque décor nommé reçoit en 9e élément
+    (t[8]) le contour de l'empreinte officielle la plus proche, que le template utilise comme
+    clip SVG — le placement précis des décors sur leur empreinte reste un travail séparé."""
     memo = cache.setdefault("_fitmemo", {})
     key = tuple((round(t[0], 1), round(t[1], 1)) for t in terrain if len(t) > 6 and t[6])
     if key not in memo:
@@ -305,6 +309,11 @@ def _official(terrain: list, cache: dict) -> None:
             official.append([cx, cz, 0, f["bbox"][3], f["bbox"][2], 1, 1, poly])
         terrain[:] = [t for t in terrain if not (len(t) > 6 and t[6])] + official
         cache["_fit"]["letters"] = [f.get("letter") for f in fit["l"]["footprints"]]
+        cents = [(sum(p[0] for p in o[7]) / len(o[7]), sum(p[1] for p in o[7]) / len(o[7]), o[7]) for o in official]
+        for t in terrain:
+            if not (len(t) > 6 and t[6]) and len(t) == 8:  # décor TTS brut : jamais au-delà de son empreinte
+                _, _, poly = min(cents, key=lambda c: math.hypot(t[0] - c[0], t[1] - c[1]))
+                t.append(poly)
 
 
 def _in_poly(x: float, z: float, poly: list) -> bool:
