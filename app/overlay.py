@@ -444,7 +444,7 @@ class Overlay:
         self._shell_open = False
         self.shell = tk.Frame(self.root, bg=PANEL)
 
-        bar = tk.Frame(self.shell, bg=PANEL, padx=10, pady=(4, 8), cursor="hand2")
+        bar = tk.Frame(self.shell, bg=PANEL, padx=10, pady=6, cursor="hand2")
         bar.pack(fill="x")
         top = tk.Frame(bar, bg=PANEL)
         top.pack(fill="x")
