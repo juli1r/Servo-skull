@@ -312,13 +312,18 @@ class Overlay:
     def _minimize(self):
         """Réduit dans la barre des tâches. Astuce nécessaire : une fenêtre overrideredirect n'a pas
         d'icône dans la barre des tâches, donc on redonne temporairement sa bordure avant de réduire ;
-        _on_map la retire dès que la fenêtre reparaît (clic sur l'icône de la barre des tâches)."""
+        _on_map la retire dès que la fenêtre reparaît (clic sur l'icône de la barre des tâches).
+        On se souvient nous-mêmes qu'on a réduit (self._minimized) plutôt que de relire l'état de la
+        fenêtre à la volée : root.state()/overrideredirect() juste après un <Map> sont peu fiables
+        sous Windows, et la bordure Windows restait affichée par-dessus la nôtre."""
+        self._minimized = True
         self.root.overrideredirect(False)
         self.root.iconify()
 
     def _on_map(self, _e=None):
-        if self.root.state() == "normal" and self.root.overrideredirect() == 0:
-            self.root.overrideredirect(True)
+        if getattr(self, "_minimized", False):
+            self._minimized = False
+            self.root.after(10, lambda: self.root.overrideredirect(True))
 
     def _header(self, parent, right_text="", right_color=MUTE):
         """Fait aussi office de barre de titre (il n'y en a plus de Windows) : on la glisse pour
