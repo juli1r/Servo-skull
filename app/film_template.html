@@ -554,6 +554,9 @@ function draw(){
       const cp=el("clipPath",{id:cid},defs);
       for(const poly of t[9])el("polygon",{points:poly.map(v=>proj(v[0],v[1]).join(",")).join(" ")},cp);
       parent=el("g",{"clip-path":`url(#${cid})`},svg)}
+    if(t.length>10&&Array.isArray(t[10])){  // vraie forme recalée (rapidingress) : dessinée telle quelle, toujours clippée par t[9]
+      for(const poly of t[10])el("polygon",{points:poly.map(v=>proj(v[0],v[1]).join(",")).join(" "),fill:t[5]?"#232c42":"#2a3348","fill-opacity":t[5]?1:.5,stroke:t[6]?"#3d4a66":t[5]?"none":"#4a5578","stroke-width":t[6]?.06:.08,"stroke-linejoin":"round"},parent);
+      continue}
     el("rect",{x:-t[3]/2,y:-t[4]/2,width:t[3],height:t[4],fill:t[5]?"#232c42":"#2a3348","fill-opacity":t[5]?1:.5,stroke:t[6]?"#3d4a66":t[5]?"none":"#4a5578","stroke-width":t[6]?.06:.08,"stroke-dasharray":t[5]?"none":".4 .25",rx:t[6]?.05:.12,transform:`translate(${x} ${y}) rotate(${rotDeg(t[2])})`},parent)}
   for(const o of c.objectives){const [x,y]=proj(o[0],o[1]);const ar=o[3]||null;const pr=presence(o,c.units);const who=pr.Red&&pr.Blue?"both":pr.Red?"Red":pr.Blue?"Blue":null;
     const col=who==="both"?"#fbbf24":who?colOf(who):"#fbbf24";const g=el("g",{},svg);

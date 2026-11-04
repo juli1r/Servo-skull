@@ -139,6 +139,23 @@ def _layouts() -> list:
     return _LAY
 
 
+# data/decor_shapes.json : vraies formes (contours réels, pas des rectangles) des décors « Dense
+# Terrain » lettrés, recalées depuis rapidingress.com/40k-layout-reference sur le repère pouces PDF
+# (voir app/data/match_rapidingress.py). Indexé par page (même pagination que layouts_officiels.json).
+_DECOR_SHAPES = None
+
+
+def _decor_shapes() -> dict:
+    global _DECOR_SHAPES
+    if _DECOR_SHAPES is None:
+        try:
+            raw = json.loads((Path(__file__).resolve().parent / "data" / "decor_shapes.json").read_text(encoding="utf-8"))
+            _DECOR_SHAPES = {d["page"]: d["decors"] for d in raw}
+        except (OSError, ValueError):
+            _DECOR_SHAPES = {}
+    return _DECOR_SHAPES
+
+
 def _cls_tts(t) -> str:
     if len(t) > 7 and t[7]:
         return "P"
@@ -293,7 +310,13 @@ def _official(terrain: list, cache: dict) -> None:
     occuper plusieurs empreintes séparées) pour les décors « denses » lettrés, sinon la seule
     empreinte la plus proche pour les décors « light » sans lettre connue. Le template dessine
     cette liste comme un unique clip-path SVG à plusieurs polygones (leur union). Le placement
-    précis des décors "light" sur leur empreinte reste un travail séparé."""
+    précis des décors "light" sur leur empreinte reste un travail séparé.
+
+    Pour les décors « denses » lettrés dont la page identifiée a une vraie forme recalée
+    (data/decor_shapes.json), un 11e élément (t[10], une LISTE de contours) porte cette forme
+    réelle (en pouces, repère monde, déjà transformée par _pdf_world/fit["sg"]) : le template la
+    dessine à la place du rectangle TTS, toujours à l'intérieur du clip-path t[9] (filet de
+    sécurité, jamais de débordement même si le recalage a une imprécision résiduelle)."""
     memo = cache.setdefault("_fitmemo", {})
     key = tuple((round(t[0], 1), round(t[1], 1)) for t in terrain if len(t) > 6 and t[6])
     if key not in memo:
@@ -323,13 +346,20 @@ def _official(terrain: list, cache: dict) -> None:
         for o, ls in zip(official, letters):
             for l in ls:
                 by_letter.setdefault(l, []).append(o[7])
+        shape_by_letter: dict[str, list] = {}
+        for dec in _decor_shapes().get(fit["page"], []):
+            poly = [list(_pdf_world(px, py, fit["sg"])) for px, py in dec["poly"]]
+            for l in dec["letters"]:
+                shape_by_letter.setdefault(l, []).append(poly)
         cents = [(sum(p[0] for p in o[7]) / len(o[7]), sum(p[1] for p in o[7]) / len(o[7]), o[7]) for o in official]
         for t in terrain:
             if len(t) > 6 and t[6]:
                 continue  # empreinte officielle : pas un décor TTS brut
             name_letter = t[8] if len(t) > 8 else None
             if name_letter and name_letter in by_letter:
-                t.append(by_letter[name_letter])  # décor « dense » lettré : union de ses empreintes
+                t.append(by_letter[name_letter])  # décor « dense » lettré : union de ses empreintes (t[9])
+                if name_letter in shape_by_letter:
+                    t.append(shape_by_letter[name_letter])  # vraie forme recalée (t[10])
             elif len(t) == 9:
                 _, _, poly = min(cents, key=lambda c: math.hypot(t[0] - c[0], t[1] - c[1]))
                 t.append([poly])  # décor « light » sans lettre : empreinte la plus proche
