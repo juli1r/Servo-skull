@@ -271,14 +271,14 @@ class Overlay:
         for w in self.root.winfo_children():
             w.destroy()
 
-    def _btn(self, parent, text, cmd, bg=None, fg=None, font=None, kind="ghost", **kw):
+    def _btn(self, parent, text, cmd, bg=None, fg=None, font=None, kind="ghost", padx=11, pady=5, **kw):
         """kind : primary (coral), ghost (contour discret), danger."""
         styles = {"primary": (CORAL, ON_ACCENT, "#ff8566"), "ghost": (PANEL, MUTE, RAISED),
                   "danger": (PANEL, RED, RAISED), "side": (bg or PANEL, fg or INK, bg or RAISED)}
         b0, f0, act = styles.get(kind, styles["ghost"])
         b = tk.Button(parent, text=text.upper() if kind != "side" else text, command=cmd,
                       bg=bg or b0, fg=fg or f0, activebackground=act, activeforeground=INK if kind == "ghost" else (fg or f0),
-                      relief="flat", bd=0, padx=11, pady=5,
+                      relief="flat", bd=0, padx=padx, pady=pady,
                       font=font or (FONT_H if kind in ("primary", "side") else (FONT_H[0], 10, "bold")), cursor="hand2",
                       highlightthickness=1, highlightbackground=BORDER, **kw)
         if kind == "ghost":
@@ -306,8 +306,8 @@ class Overlay:
     def _window_controls(self, parent):
         """Réduire / fermer : il n'y a plus de barre de titre Windows pour les fournir.
         Mêmes boutons discrets (_btn ghost) que le reste de l'appli, pas de croix rouge criarde."""
-        self._btn(parent, "✕", self.quit, font=(FONT_H[0], 11)).pack(side="right")
-        self._btn(parent, "–", self._minimize, font=(FONT_H[0], 11)).pack(side="right", padx=(0, 4))
+        self._btn(parent, "✕", self.quit, font=(FONT_H[0], 10), padx=5, pady=1).pack(side="right")
+        self._btn(parent, "–", self._minimize, font=(FONT_H[0], 10), padx=5, pady=1).pack(side="right", padx=(0, 2))
 
     def _minimize(self):
         """Réduit dans la barre des tâches. Astuce nécessaire : une fenêtre overrideredirect n'a pas
