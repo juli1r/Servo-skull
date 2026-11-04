@@ -258,30 +258,34 @@ def _pt_in(x: float, z: float, poly: list) -> bool:
     return ins
 
 
-def overlap(foot: list, fit: dict) -> list:
-    """Pour chaque décor TTS (rectangle tourné) : part de sa surface qui tombe dans un contour officiel du layout."""
+def _match_overlap(foot: list, fit: dict) -> list:
+    """Pour chaque décor TTS : l'empreinte officielle la plus proche (par centre) et la part de sa
+    surface qui tombe dans CE contour précis (pas « dans n'importe lequel ») — pour pouvoir juger
+    pièce par pièce si la substitution est fidèle, pas seulement en moyenne sur toute la table."""
     polys = [[list(_pdf_world(u, v, fit["sg"])) for u, v in f["poly"]] for f in fit["l"]["footprints"]]
+    centers = [((min(p[0] for p in poly) + max(p[0] for p in poly)) / 2,
+                (min(p[1] for p in poly) + max(p[1] for p in poly)) / 2) for poly in polys]
     out = []
     for t in foot:
+        di = min(range(len(centers)), key=lambda i: math.hypot(t[0] - centers[i][0], t[1] - centers[i][1]))
+        poly = polys[di]
         th = math.radians(t[2]); c, s = math.cos(th), math.sin(th); hit = 0
         for i in range(12):
             for j in range(12):
                 lx, lz = (i + .5) / 12 * t[3] - t[3] / 2, (j + .5) / 12 * t[4] - t[4] / 2
                 x, z = t[0] + lx * c - lz * s, t[1] + lx * s + lz * c
-                hit += any(_pt_in(x, z, p) for p in polys)
-        out.append(hit / 144)
+                hit += _pt_in(x, z, poly)
+        out.append((di, hit / 144))
     return out
 
 
-def _official_terrain(fit: dict) -> list:
-    """Empreintes EXACTES du PDF (contours officiels), converties dans le repère de la table TTS."""
-    out = []
-    for f in fit["l"]["footprints"]:
-        pts = [list(_pdf_world(u, v, fit["sg"])) for u, v in f["poly"]]
-        xs, zs = [p[0] for p in pts], [p[1] for p in pts]
-        out.append([round((max(xs) + min(xs)) / 2, 2), round((max(zs) + min(zs)) / 2, 2), 0,
-                    round(max(xs) - min(xs), 2), round(max(zs) - min(zs), 2), 1, 1, pts])
-    return out
+def _official_terrain_one(fit: dict, idx: int) -> list:
+    """Empreinte EXACTE du PDF (contour officiel) n°idx, convertie dans le repère de la table TTS."""
+    f = fit["l"]["footprints"][idx]
+    pts = [list(_pdf_world(u, v, fit["sg"])) for u, v in f["poly"]]
+    xs, zs = [p[0] for p in pts], [p[1] for p in pts]
+    return [round((max(xs) + min(xs)) / 2, 2), round((max(zs) + min(zs)) / 2, 2), 0,
+            round(max(xs) - min(xs), 2), round(max(zs) - min(zs), 2), 1, 1, pts]
 
 
 def _official(terrain: list, cache: dict) -> None:
@@ -292,10 +296,15 @@ def _official(terrain: list, cache: dict) -> None:
     if key not in memo:
         fit = fit_layout(terrain, cache.get("_hint"))
         if fit:  # contrôle de forme : les décors TTS doivent vraiment recouvrir les contours du PDF
-            ov = overlap([t for t in terrain if len(t) > 6 and t[6]], fit)
+            foot_items = [t for t in terrain if len(t) > 6 and t[6]]
+            pairs = _match_overlap(foot_items, fit)  # (indice empreinte PDF la + proche, recouvrement) par décor
+            ov = [o for _, o in pairs]
             fit["overlap"], fit["ov_min"] = sum(ov) / len(ov), min(ov)
-            # identité lue dans le jeu : on ne rejette pas (rectangles TTS vs contours en L/trapèze : jamais 100 %)
+            # identité lue dans le jeu : on ne rejette pas tout le layout (rectangles TTS vs contours en
+            # L/trapèze : jamais 100 %), mais chaque pièce garde sa propre forme approx. si elle colle mal
+            # (sinon la silhouette officielle dépasse largement de l'emplacement réel du décor)
             fit["ok"] = fit.get("known") or (fit["overlap"] >= 0.6 and fit["ov_min"] >= 0.25)
+            fit["pairs"] = pairs
         memo[key] = fit
     fit = memo[key]
     if fit and not fit["ok"]:  # trop différent : on n'affiche PAS un layout officiel faux, on le signale
@@ -310,7 +319,17 @@ def _official(terrain: list, cache: dict) -> None:
     if fit:
         cache["_fit"]["zones"] = {k: [list(_pdf_world(u, v, fit["sg"])) for u, v in pts] for k, pts in (fit["l"].get("zones") or {}).items()}
     if fit:
-        terrain[:] = [t for t in terrain if not (len(t) > 6 and t[6])] + _official_terrain(fit)
+        foot_items = [t for t in terrain if len(t) > 6 and t[6]]
+        used, kept = set(), []
+        for t, (di, ov) in zip(foot_items, fit["pairs"]):
+            if ov >= 0.5 and di not in used:  # cette pièce précise colle bien à l'empreinte PDF : contour exact
+                used.add(di)
+                kept.append(_official_terrain_one(fit, di))
+            else:  # mal alignée avec l'empreinte officielle la plus proche : on garde sa position/forme réelle
+                th = math.radians(t[2]); c, s_ = math.cos(th), math.sin(th)
+                t[7] = [[round(t[0] + lx * c - lz * s_, 3), round(t[1] + lx * s_ + lz * c, 3)] for lx, lz in LOCAL_TRAP]
+                kept.append(t)
+        terrain[:] = [t for t in terrain if not (len(t) > 6 and t[6])] + kept
         return
     for t in terrain:
         if len(t) > 7 and t[6] and t[7] and not isinstance(t[7], list):
