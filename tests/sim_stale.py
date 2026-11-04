@@ -10,9 +10,14 @@ class FakeClient:
 
 c = Controller.__new__(Controller)
 c.client = FakeClient()
-c.state = {"phaseName": "Command Phase"}
+c.state = {"phaseName": "Command Phase", "inGame": False}
 emitted = []
 c.emit = lambda ev, p=None: emitted.append((ev, p))
+# partie pas (encore) lancée : pas d'alerte, le minuteur ne doit pas prévenir pour rien
+c._on_stale({"stale": True, "json": '{"minutes": 5}'})
+assert not emitted, emitted
+
+c.state["inGame"] = True
 c._on_stale({"stale": True, "json": '{"minutes": 5}'})
 assert emitted and emitted[0][0] == "alert", emitted
 txt = emitted[0][1]["text"]

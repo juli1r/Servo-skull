@@ -293,7 +293,11 @@ class Controller:
             self._events.put(msg)
 
     def _on_stale(self, msg: dict):
-        """Aucun mouvement ni jet de dés depuis longtemps : la partie semble en pause, on prévient l'hôte."""
+        """Aucun mouvement ni jet de dés depuis longtemps : la partie semble en pause, on prévient l'hôte.
+        Seulement si la partie est réellement en cours (sinon le minuteur tourne dès la connexion, avant
+        même « Start Game », et prévient pour rien)."""
+        if not (self.state or {}).get("inGame"):
+            return
         import json as _json
         try:
             info = _json.loads(msg.get("json") or "{}")
