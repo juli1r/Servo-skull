@@ -310,7 +310,13 @@ def _official(terrain: list, cache: dict) -> None:
     if fit:
         cache["_fit"]["zones"] = {k: [list(_pdf_world(u, v, fit["sg"])) for u, v in pts] for k, pts in (fit["l"].get("zones") or {}).items()}
     if fit:
-        terrain[:] = [t for t in terrain if not (len(t) > 6 and t[6])] + _official_terrain(fit)
+        off = _official_terrain(fit)
+        polys = [f[7] for f in off]
+        # un décor brut (mur, tour...) dont le centre tombe dans une empreinte officielle est la même
+        # ruine que cette empreinte, déjà représentée par son contour exact : pas de 2e forme approx.
+        # par-dessus (aucun décor ne dépasse de son empreinte en 10e/11e, donc un dépassement visible
+        # ne peut venir que de cette double forme, jamais de la vraie table)
+        terrain[:] = [t for t in terrain if not (len(t) > 6 and t[6]) and not any(_pt_in(t[0], t[1], p) for p in polys)] + off
         return
     for t in terrain:
         if len(t) > 7 and t[6] and t[7] and not isinstance(t[7], list):
