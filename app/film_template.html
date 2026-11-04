@@ -549,9 +549,10 @@ function draw(){
     if(Array.isArray(t[7])){el("polygon",{points:t[7].map(v=>proj(v[0],v[1]).join(",")).join(" "),fill:"#232c42",stroke:"#3d4a66","stroke-width":.06,"stroke-linejoin":"round"},svg);continue}
     const [x,y]=proj(t[0],t[1]);
     let parent=svg;
-    if(t.length>8&&Array.isArray(t[8])){  // décor nommé : jamais au-delà de l'empreinte officielle la plus proche (t[8])
+    if(t.length>9&&Array.isArray(t[9])){  // décor nommé : jamais au-delà de l'union de ses empreintes officielles (t[9])
       const cid="clip"+(clipN++);
-      el("polygon",{points:t[8].map(v=>proj(v[0],v[1]).join(",")).join(" ")},el("clipPath",{id:cid},defs));
+      const cp=el("clipPath",{id:cid},defs);
+      for(const poly of t[9])el("polygon",{points:poly.map(v=>proj(v[0],v[1]).join(",")).join(" ")},cp);
       parent=el("g",{"clip-path":`url(#${cid})`},svg)}
     el("rect",{x:-t[3]/2,y:-t[4]/2,width:t[3],height:t[4],fill:t[5]?"#232c42":"#2a3348","fill-opacity":t[5]?1:.5,stroke:t[6]?"#3d4a66":t[5]?"none":"#4a5578","stroke-width":t[6]?.06:.08,"stroke-dasharray":t[5]?"none":".4 .25",rx:t[6]?.05:.12,transform:`translate(${x} ${y}) rotate(${rotDeg(t[2])})`},parent)}
   for(const o of c.objectives){const [x,y]=proj(o[0],o[1]);const ar=o[3]||null;const pr=presence(o,c.units);const who=pr.Red&&pr.Blue?"both":pr.Red?"Red":pr.Blue?"Blue":null;

@@ -11,6 +11,10 @@ from core import Session, parse_unit_name, strip_tags
 OBJECTIVE = re.compile(r"objecti", re.I)
 NOT_OBJECTIVE = re.compile(r"button|show|card|secondary|secondaire", re.I)
 OBJ_LABELS = (("home", "Maison"), ("expansion", "Expansion"), ("cent", "Centre"))
+# Décors « Dense Terrain » (Event Companion p.8) : nommés dans le mod TTS d'après la lettre du
+# composant officiel — « CO » est le nom utilisé par le mod pour la lettre « CD » (coquille/variante
+# de nommage, jamais « CD » littéralement, confirmée sur toutes les parties capturées).
+_LETTER_NAMES = {"AB": "AB", "CD": "CD", "CO": "CD", "EF": "EF", "GH": "GH"}
 
 
 def _obj_label(nm: str) -> str:
@@ -75,7 +79,7 @@ def reduce_snapshot(snap: dict, board: dict, cache: dict | None = None) -> dict:
                     sx, sz, poly = snapped
                     if not poly:
                         x, z = exact_center(p["x"], p["z"], ry, x, z, sx, sz)
-            terrain.append([x, z, ry, sx, sz, 1 if flat else 0, 1 if foot else 0, poly])
+            terrain.append([x, z, ry, sx, sz, 1 if flat else 0, 1 if foot else 0, poly, _LETTER_NAMES.get(nm)])
     if light and not terrain and "_terrain" in cache:
         terrain, objectives = cache["_terrain"]
     elif terrain:
@@ -283,8 +287,13 @@ def _official(terrain: list, cache: dict) -> None:
     ci-dessus), jamais au tracé une fois le layout confirmé. Leur position/taille TTS reste
     cependant approximative (pivot pas toujours au centre, bornes qui débordent) : pour ne jamais
     afficher de débordement (règle stricte du projet), chaque décor nommé reçoit en 9e élément
-    (t[8]) le contour de l'empreinte officielle la plus proche, que le template utilise comme
-    clip SVG — le placement précis des décors sur leur empreinte reste un travail séparé."""
+    (t[9], une LISTE de contours) la ou les empreintes officielles sur lesquelles il doit être
+    clippé — l'union de toutes les empreintes de sa lettre (t[8], d'après son nom TTS, Event
+    Companion p.8 : « AB »/« CO »→CD/« EF »/« GH » = Dense Terrain, un même composant du kit peut
+    occuper plusieurs empreintes séparées) pour les décors « denses » lettrés, sinon la seule
+    empreinte la plus proche pour les décors « light » sans lettre connue. Le template dessine
+    cette liste comme un unique clip-path SVG à plusieurs polygones (leur union). Le placement
+    précis des décors "light" sur leur empreinte reste un travail séparé."""
     memo = cache.setdefault("_fitmemo", {})
     key = tuple((round(t[0], 1), round(t[1], 1)) for t in terrain if len(t) > 6 and t[6])
     if key not in memo:
@@ -308,12 +317,22 @@ def _official(terrain: list, cache: dict) -> None:
             cx, cz = sum(p[0] for p in poly) / len(poly), sum(p[1] for p in poly) / len(poly)
             official.append([cx, cz, 0, f["bbox"][3], f["bbox"][2], 1, 1, poly])
         terrain[:] = [t for t in terrain if not (len(t) > 6 and t[6])] + official
-        cache["_fit"]["letters"] = [f.get("letter") for f in fit["l"]["footprints"]]
+        letters = [f.get("letter") for f in fit["l"]["footprints"]]
+        cache["_fit"]["letters"] = letters
+        by_letter: dict[str, list] = {}
+        for o, l in zip(official, letters):
+            if l:
+                by_letter.setdefault(l, []).append(o[7])
         cents = [(sum(p[0] for p in o[7]) / len(o[7]), sum(p[1] for p in o[7]) / len(o[7]), o[7]) for o in official]
         for t in terrain:
-            if not (len(t) > 6 and t[6]) and len(t) == 8:  # décor TTS brut : jamais au-delà de son empreinte
+            if len(t) > 6 and t[6]:
+                continue  # empreinte officielle : pas un décor TTS brut
+            name_letter = t[8] if len(t) > 8 else None
+            if name_letter and name_letter in by_letter:
+                t.append(by_letter[name_letter])  # décor « dense » lettré : union de ses empreintes
+            elif len(t) == 9:
                 _, _, poly = min(cents, key=lambda c: math.hypot(t[0] - c[0], t[1] - c[1]))
-                t.append(poly)
+                t.append([poly])  # décor « light » sans lettre : empreinte la plus proche
 
 
 def _in_poly(x: float, z: float, poly: list) -> bool:
