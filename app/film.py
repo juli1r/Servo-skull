@@ -125,6 +125,20 @@ _LAY = None
 DISPOSITIONS = ("TAKE AND HOLD", "PURGE THE FOE", "RECONNAISSANCE", "PRIORITY ASSETS", "DISRUPTION")
 # trapèze rectangle 8 / 2 x 11,5 dans le repère de l'objet TTS (mesuré sur les layouts officiels)
 LOCAL_TRAP = ((2.94, 6.33), (6.95, -0.70), (-3.10, -6.45), (-4.12, -4.67))
+_TRAP_XS = [p[0] for p in LOCAL_TRAP]
+_TRAP_ZS = [p[1] for p in LOCAL_TRAP]
+_TRAP_CX, _TRAP_CZ = (max(_TRAP_XS) + min(_TRAP_XS)) / 2, (max(_TRAP_ZS) + min(_TRAP_ZS)) / 2
+_TRAP_W, _TRAP_H = max(_TRAP_XS) - min(_TRAP_XS), max(_TRAP_ZS) - min(_TRAP_ZS)
+
+
+def _approx_poly(t: list) -> list:
+    """Silhouette type (pas un rectangle plat) à la position/rotation/TAILLE réelle du décor TTS :
+    le trapèze de référence est remis à l'échelle sur l'empreinte mesurée (t[3]/t[4]), sinon il déborde
+    ou laisse un vide dès que la vraie pièce n'a pas exactement la taille 8/2 x 11,5 d'origine."""
+    th = math.radians(t[2]); c, s_ = math.cos(th), math.sin(th)
+    sx, sz = t[3] / _TRAP_W, t[4] / _TRAP_H
+    return [[round(t[0] + (lx - _TRAP_CX) * sx * c - (lz - _TRAP_CZ) * sz * s_, 3),
+             round(t[1] + (lx - _TRAP_CX) * sx * s_ + (lz - _TRAP_CZ) * sz * c, 3)] for lx, lz in LOCAL_TRAP]
 
 
 def _layouts() -> list:
@@ -312,8 +326,7 @@ def _official(terrain: list, cache: dict) -> None:
         fit = None
         for t in terrain:
             if len(t) > 7 and t[6] and t[7] and not isinstance(t[7], list):
-                th = math.radians(t[2]); c, s_ = math.cos(th), math.sin(th)
-                t[7] = [[round(t[0] + lx * c - lz * s_, 3), round(t[1] + lx * s_ + lz * c, 3)] for lx, lz in LOCAL_TRAP]
+                t[7] = _approx_poly(t)
         return
     cache["_fit"] = ({k: fit[k] for k in ("page", "layout", "n", "of", "mean", "max", "overlap", "known", "far")} | {"name": _fit_name(fit["head"])}) if fit else None
     if fit:
@@ -326,15 +339,13 @@ def _official(terrain: list, cache: dict) -> None:
                 used.add(di)
                 kept.append(_official_terrain_one(fit, di))
             else:  # mal alignée avec l'empreinte officielle la plus proche : on garde sa position/forme réelle
-                th = math.radians(t[2]); c, s_ = math.cos(th), math.sin(th)
-                t[7] = [[round(t[0] + lx * c - lz * s_, 3), round(t[1] + lx * s_ + lz * c, 3)] for lx, lz in LOCAL_TRAP]
+                t[7] = _approx_poly(t)
                 kept.append(t)
         terrain[:] = [t for t in terrain if not (len(t) > 6 and t[6])] + kept
         return
     for t in terrain:
         if len(t) > 7 and t[6] and t[7] and not isinstance(t[7], list):
-            th = math.radians(t[2]); c, s_ = math.cos(th), math.sin(th)
-            t[7] = [[round(t[0] + lx * c - lz * s_, 3), round(t[1] + lx * s_ + lz * c, 3)] for lx, lz in LOCAL_TRAP]
+            t[7] = _approx_poly(t)
 
 
 def _in_poly(x: float, z: float, poly: list) -> bool:
