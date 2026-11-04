@@ -117,7 +117,6 @@ class Overlay:
         if cfg.get("overlay_geometry"):
             self.root.geometry(cfg["overlay_geometry"])
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
-        self.root.bind("<Map>", self._on_map)
         self.ctl = controller_factory(self)
         self.busy = False
         self._build_start()
@@ -303,27 +302,17 @@ class Overlay:
         w.bind("<FocusOut>", lambda e: box.config(bg=BORDER))
         return box, w
 
-    def _window_controls(self, parent):
+    def _window_controls(self, parent, minimize=None):
         """Réduire / fermer : il n'y a plus de barre de titre Windows pour les fournir.
-        Mêmes boutons discrets (_btn ghost) que le reste de l'appli, pas de croix rouge criarde."""
+        Mêmes boutons discrets (_btn ghost) que le reste de l'appli, pas de croix rouge criarde.
+        `minimize` : fonction à appeler pour « réduire », absente = pas de bouton réduire ici
+        (ex. l'écran de départ, qui n'a pas d'icône repliée vers laquelle réduire).
+        Pas de vrai minimize Windows : sur une fenêtre overrideredirect, retirer puis remettre la
+        bordure pour avoir une icône dans la barre des tâches s'est révélé peu fiable (la bordure
+        Windows native restait affichée par-dessus la nôtre). Réduire = replier vers l'icône."""
         self._btn(parent, "✕", self.quit, font=(FONT_H[0], 10), padx=5, pady=1).pack(side="right")
-        self._btn(parent, "–", self._minimize, font=(FONT_H[0], 10), padx=5, pady=1).pack(side="right", padx=(0, 2))
-
-    def _minimize(self):
-        """Réduit dans la barre des tâches. Astuce nécessaire : une fenêtre overrideredirect n'a pas
-        d'icône dans la barre des tâches, donc on redonne temporairement sa bordure avant de réduire ;
-        _on_map la retire dès que la fenêtre reparaît (clic sur l'icône de la barre des tâches).
-        On se souvient nous-mêmes qu'on a réduit (self._minimized) plutôt que de relire l'état de la
-        fenêtre à la volée : root.state()/overrideredirect() juste après un <Map> sont peu fiables
-        sous Windows, et la bordure Windows restait affichée par-dessus la nôtre."""
-        self._minimized = True
-        self.root.overrideredirect(False)
-        self.root.iconify()
-
-    def _on_map(self, _e=None):
-        if getattr(self, "_minimized", False):
-            self._minimized = False
-            self.root.after(10, lambda: self.root.overrideredirect(True))
+        if minimize:
+            self._btn(parent, "–", minimize, font=(FONT_H[0], 10), padx=5, pady=1).pack(side="right", padx=(0, 2))
 
     def _header(self, parent, right_text="", right_color=MUTE):
         """Fait aussi office de barre de titre (il n'y en a plus de Windows) : on la glisse pour
@@ -451,28 +440,23 @@ class Overlay:
 
         bar = tk.Frame(self.shell, bg=PANEL, padx=10, pady=6, cursor="hand2")
         bar.pack(fill="x")
-        top = tk.Frame(bar, bg=PANEL)
-        top.pack(fill="x")
-        self._window_controls(top)
-        row = tk.Frame(bar, bg=PANEL)
-        row.pack(fill="x", pady=(2, 0))
-        self.badge_mini = tk.Label(row, bg=PANEL, bd=0, highlightthickness=0, cursor="hand2")
+        self.badge_mini = tk.Label(bar, bg=PANEL, bd=0, highlightthickness=0, cursor="hand2")
         self.badge_mini.pack(side="left")
-        info = tk.Frame(row, bg=PANEL)
+        info = tk.Frame(bar, bg=PANEL)
         info.pack(side="left", padx=(8, 0))
         self.lbl_turn = tk.Label(info, text="EN ATTENTE", bg=PANEL, fg=MUTE, font=FONT_MONO, anchor="w")
         self.lbl_turn.pack(anchor="w")
         self.lbl_count = tk.Label(info, text="0 capture", bg=PANEL, fg=FAINT, font=FONT_MONO, anchor="w")
         self.lbl_count.pack(anchor="w")
-        score = tk.Frame(row, bg=PANEL)
-        score.pack(side="right")
+        self._window_controls(bar, minimize=self._collapse)
+        self.score = tk.Frame(bar, bg=PANEL)
         self.sc = {}
         for c, col in (("Red", RED), ("Blue", BLUE)):
-            hidden = tk.Label(row)  # nom du joueur : affiché seulement dans l'infobulle de la barre
-            v = tk.Label(score, text="–", bg=PANEL, fg=col, font=(FONT_H[0], 20, "bold"))
+            hidden = tk.Label(bar)  # nom du joueur : affiché seulement dans l'infobulle de la barre
+            v = tk.Label(self.score, text="–", bg=PANEL, fg=col, font=(FONT_H[0], 20, "bold"))
             self.sc[c] = (hidden, v)
         self.sc["Red"][1].pack(side="left")
-        tk.Label(score, text="–", bg=PANEL, fg=FAINT, font=FONT).pack(side="left", padx=3)
+        tk.Label(self.score, text="–", bg=PANEL, fg=FAINT, font=FONT).pack(side="left", padx=3)
         self.sc["Blue"][1].pack(side="left")
         self._make_draggable_deep(bar, on_click=self._toggle_shell)
         tk.Frame(self.shell, bg=BORDER, height=1).pack(fill="x")
@@ -543,6 +527,11 @@ class Overlay:
             self.shell.pack_forget()
             self.badge.pack(anchor="w")
         self._relayout()
+
+    def _collapse(self):
+        """Bouton « réduire » de la carte : revient toujours à l'icône, pas un bascule."""
+        if self._shell_open:
+            self._toggle_shell()
 
     # ------------------------------------------------------------ actions
     def _open_settings_menu(self, anchor):
@@ -845,6 +834,13 @@ class Overlay:
                     who = (pl.get(c) or COLOR_FR[c]).upper() + (" · MOI" if c == me else "")
                     self.sc[c][0].config(text=who)
                     self.sc[c][1].config(text=str(vp.get(c, "–")) if vp.get(c) is not None else "–")
+            if hasattr(self, "score") and self.score.winfo_exists():
+                # pas de tirets vides avant qu'il y ait un vrai score à montrer
+                if vp.get("Red") is not None or vp.get("Blue") is not None:
+                    self.score.pack(side="right")
+                else:
+                    self.score.pack_forget()
+                self._relayout()
         elif ev == "update":
             self._update_info = p
             self._apply_update_banner()
