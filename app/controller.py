@@ -482,8 +482,31 @@ class Controller:
                     self.pending_alert = None
                     self.emit("alert_clear", None)
             film.build(self.session)
+            if len(self.session.game["captures"]) == 1:
+                self._check_layout()
             self.emit("captured", meta)
             return meta
+
+    def _check_layout(self):
+        """Prévient en tout début de partie si les décors ne collent pas au layout officiel de
+        l'Event Companion (comparaison faite à chaque capture, jamais remontée sinon)."""
+        try:
+            data = film.collect(self.session)
+        except Exception:
+            return
+        has_terrain = any(len(t) > 6 and t[6] for c in data["captures"] for t in (c.get("terrain") or []))
+        if not has_terrain:
+            return
+        fit = data.get("layoutFit")
+        # une fois le layout identifié (carte de déploiement lue dans TTS), le film utilise toujours les
+        # dimensions EXACTES de l'Event Companion pour ces décors, quelle que soit la position réelle sur
+        # la table — donc rien à signaler dans ce cas, même si le recouvrement mesuré est faible.
+        if fit is None:
+            self.emit("layout_warn", {"text": "Table non reconnue parmi les 45 layouts officiels de l'Event Companion "
+                                               "— plan approximatif dans le film, pas les dimensions officielles."})
+        elif fit.get("rejected"):
+            self.emit("layout_warn", {"text": f"Décors proches du layout {fit['layout']} (p.{fit['page']}) mais identité "
+                                               "non confirmée — plan approximatif dans le film, pas les dimensions officielles."})
 
     def catch_up(self, intent="", note=""):
         """Rattrapage du tour signalé par l'alerte : la table actuelle = fin de ce tour."""

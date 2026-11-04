@@ -84,10 +84,18 @@ class Overlay:
                 pass
         self.root = tk.Tk()
         self.root.title("Servo-Skull")
-        self.root.configure(bg=BG)
+        self._TKEY = "#ff00fe"  # couleur-clé : rendue transparente, donc jamais utilisée ailleurs
+        self.root.configure(bg=self._TKEY)
         self.root.attributes("-topmost", True)
+        self.root.overrideredirect(True)  # pas de barre de titre Windows : on dessine notre propre coquille
+        if sys.platform == "win32":
+            try:
+                self.root.wm_attributes("-transparentcolor", self._TKEY)
+            except tk.TclError:
+                pass
         _setup_fonts(self.root)
         ip = _icon_path()
+        self._badge_src = None
         if ip:
             try:
                 if sys.platform == "win32":
@@ -98,12 +106,18 @@ class Overlay:
                 pass
             if sys.platform == "win32":
                 self.root.after(200, lambda: self._win_icon(ip / "servo-skull.ico"))
+            try:
+                from PIL import Image as _PILImage
+                self._badge_src = _PILImage.open(str(ip / "servo-skull-256.png")).convert("RGBA")
+            except Exception:
+                self._badge_src = None
         if cfg.get("overlay_alpha", 1.0) < 1.0:  # désactivé par défaut : coûteux pour le jeu en dessous
             self.root.attributes("-alpha", cfg["overlay_alpha"])
         self.root.resizable(False, False)
         if cfg.get("overlay_geometry"):
             self.root.geometry(cfg["overlay_geometry"])
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
+        self.root.bind("<Map>", self._on_map)
         self.ctl = controller_factory(self)
         self.busy = False
         self._build_start()
@@ -123,6 +137,117 @@ class Overlay:
                     user32.SendMessageW(hwnd, 0x80, which, h)  # WM_SETICON
         except Exception:
             pass
+
+    # -------------------------------------------------------- coquille sans bordure
+    def _make_draggable(self, widget, on_click=None):
+        """Pas de barre de titre : on déplace la fenêtre en glissant ce widget.
+        Un clic sans glissement (< 4 px) déclenche `on_click` au lieu de déplacer."""
+        st = {"moved": False}
+        def press(e):
+            st["x0"], st["y0"] = e.x_root, e.y_root
+            st["wx"], st["wy"] = self.root.winfo_x(), self.root.winfo_y()
+            st["moved"] = False
+        def drag(e):
+            dx, dy = e.x_root - st["x0"], e.y_root - st["y0"]
+            if abs(dx) > 4 or abs(dy) > 4:
+                st["moved"] = True
+            self.root.geometry(f"+{st['wx'] + dx}+{st['wy'] + dy}")
+        def release(e):
+            if not st["moved"] and on_click:
+                on_click()
+        widget.bind("<ButtonPress-1>", press)
+        widget.bind("<B1-Motion>", drag)
+        widget.bind("<ButtonRelease-1>", release)
+
+    def _make_draggable_deep(self, widget, on_click=None):
+        """Comme _make_draggable, mais sur tout un bloc (Frame + Labels enfants) : sinon le glisser ne
+        marche que sur les quelques pixels de fond exposés entre les éléments empaquetés."""
+        if isinstance(widget, (tk.Button, tk.Entry, tk.Text)):
+            return
+        self._make_draggable(widget, on_click=on_click)
+        for child in widget.winfo_children():
+            self._make_draggable_deep(child, on_click=on_click)
+
+    def _popup_menu(self, widget, *items):
+        """Menu clic-droit : remplace les contrôles de la barre de titre absente (dont Quitter)."""
+        m = tk.Menu(self.root, tearoff=0, bg=PANEL, fg=INK, activebackground=RAISED,
+                   activeforeground=INK, bd=0, relief="flat")
+        for label, cmd in items:
+            if label is None:
+                m.add_separator()
+            else:
+                m.add_command(label=label, command=cmd)
+        widget.bind("<Button-3>", lambda e: m.tk_popup(e.x_root, e.y_root))
+        return m
+
+    def _relayout(self):
+        """Réajuste la taille de la fenêtre au contenu réellement affiché (replié ou déplié)."""
+        self.root.update_idletasks()
+        self.root.geometry("")
+
+    def _render_badge(self, target, status_color, notify=False, size=60):
+        """Icône Servo-Skull : disque + anneau de statut (+ pastille si notification).
+        Utilisée pour l'icône flottante (repliée) comme pour la mini-icône de l'en-tête (dépliée)."""
+        try:
+            from PIL import Image, ImageDraw, ImageTk
+        except Exception:
+            return
+        ring = max(2, round(size * 0.07))
+        img = Image.new("RGB", (size, size), self._TKEY)
+        draw = ImageDraw.Draw(img)
+        draw.ellipse((ring + 1, ring + 1, size - ring - 1, size - ring - 1), fill=PANEL)
+        draw.ellipse((ring // 2, ring // 2, size - ring // 2, size - ring // 2), outline=status_color, width=ring)
+        if self._badge_src is not None:
+            isz = int(size * 0.62)
+            icon = self._badge_src.resize((isz, isz), Image.LANCZOS)
+            img.paste(icon, ((size - isz) // 2, (size - isz) // 2), icon)
+        if notify:
+            d = max(8, size // 4)
+            x0, y0 = size - d - 1, 1
+            draw.ellipse((x0, y0, x0 + d, y0 + d), fill=CORAL, outline=PANEL, width=2)
+        img_ref = ImageTk.PhotoImage(img)
+        if target is getattr(self, "badge", None):
+            self._badge_img = img_ref
+        else:
+            self._badge_mini_img = img_ref
+        target.config(image=img_ref)
+
+    def _badge_status(self):
+        """Résume l'état en une couleur : vert = connecté sans souci, ambre = quelque chose à voir, gris = invité."""
+        if hasattr(self, "alert") and self.alert.winfo_exists() and self.alert.winfo_ismapped():
+            return AMBER, True
+        if getattr(self, "_update_info", None) or getattr(self, "_unfinished_info", None) or getattr(self, "_layout_info", None):
+            return AMBER, True
+        if getattr(self, "mode", None) == "host":
+            return GREEN, False
+        if getattr(self, "mode", None) == "guest":
+            return AMBER, False
+        return MUTE, False
+
+    def _update_badge(self):
+        color, notify = self._badge_status()
+        if hasattr(self, "badge") and self.badge.winfo_exists():
+            self._render_badge(self.badge, color, notify, 60)
+        if hasattr(self, "badge_mini") and self.badge_mini.winfo_exists():
+            self._render_badge(self.badge_mini, color, notify, 26)
+
+    def _round_corners(self, container, radius=14, bg=PANEL):
+        """Masque les 4 coins d'un Frame rectangulaire pour lui donner l'air d'une carte arrondie
+        (Tkinter n'a pas de forme arrondie native) : un petit carré transparent-sauf-le-quart-de-cercle
+        posé par-dessus chaque coin, dans la couleur de fond de la carte."""
+        try:
+            from PIL import Image, ImageDraw, ImageTk
+        except Exception:
+            return
+        img = Image.new("RGB", (radius, radius), self._TKEY)
+        ImageDraw.Draw(img).ellipse((0, 0, radius * 2, radius * 2), fill=bg)
+        imgs = (img, img.transpose(Image.FLIP_LEFT_RIGHT),
+                img.transpose(Image.FLIP_TOP_BOTTOM), img.transpose(Image.ROTATE_180))
+        self._corner_imgs = tuple(ImageTk.PhotoImage(i) for i in imgs)
+        placements = (dict(x=0, y=0), dict(relx=1, y=0, anchor="ne"),
+                     dict(x=0, rely=1, anchor="sw"), dict(relx=1, rely=1, anchor="se"))
+        for image, place_kw in zip(self._corner_imgs, placements):
+            tk.Label(container, image=image, bg=self._TKEY, bd=0, highlightthickness=0).place(**place_kw)
 
     # ---------------------------------------------------- hooks contrôleur
     def emit(self, ev, payload=None):
@@ -161,9 +286,9 @@ class Overlay:
             b.bind("<Leave>", lambda e: b.config(fg=f0, bg=b0))
         return b
 
-    def _label(self, parent, text):
+    def _label(self, parent, text, bg=BG):
         """Libellé de champ façon Cogitator : mono, petit, espacé."""
-        return tk.Label(parent, text=text.upper(), bg=BG, fg=FAINT, font=FONT_MONO, anchor="w")
+        return tk.Label(parent, text=text.upper(), bg=bg, fg=FAINT, font=FONT_MONO, anchor="w")
 
     def _field(self, parent, multiline=False):
         box = tk.Frame(parent, bg=BORDER, padx=1, pady=1)
@@ -178,17 +303,41 @@ class Overlay:
         w.bind("<FocusOut>", lambda e: box.config(bg=BORDER))
         return box, w
 
+    def _window_controls(self, parent):
+        """Réduire / fermer : il n'y a plus de barre de titre Windows pour les fournir.
+        Mêmes boutons discrets (_btn ghost) que le reste de l'appli, pas de croix rouge criarde."""
+        self._btn(parent, "✕", self.quit, font=(FONT_H[0], 11)).pack(side="right")
+        self._btn(parent, "–", self._minimize, font=(FONT_H[0], 11)).pack(side="right", padx=(0, 4))
+
+    def _minimize(self):
+        """Réduit dans la barre des tâches. Astuce nécessaire : une fenêtre overrideredirect n'a pas
+        d'icône dans la barre des tâches, donc on redonne temporairement sa bordure avant de réduire ;
+        _on_map la retire dès que la fenêtre reparaît (clic sur l'icône de la barre des tâches)."""
+        self.root.overrideredirect(False)
+        self.root.iconify()
+
+    def _on_map(self, _e=None):
+        if self.root.state() == "normal" and self.root.overrideredirect() == 0:
+            self.root.overrideredirect(True)
+
     def _header(self, parent, right_text="", right_color=MUTE):
-        h = tk.Frame(parent, bg=PANEL, padx=14, pady=8)
+        """Fait aussi office de barre de titre (il n'y en a plus de Windows) : on la glisse pour
+        déplacer la fenêtre, et les boutons de droite donnent réduire / fermer."""
+        h = tk.Frame(parent, bg=PANEL, padx=14, pady=8, cursor="fleur")
         h.pack(fill="x")
-        tk.Label(h, text="SERVO-SKULL", bg=PANEL, fg=CORAL, font=FONT_H).pack(side="left")
+        title = tk.Label(h, text="SERVO-SKULL", bg=PANEL, fg=CORAL, font=FONT_H)
+        title.pack(side="left")
+        self._window_controls(h)
         if right_text:
-            tk.Label(h, text=right_text.upper(), bg=PANEL, fg=right_color, font=FONT_MONO).pack(side="right")
+            tk.Label(h, text=right_text.upper(), bg=PANEL, fg=right_color, font=FONT_MONO).pack(side="right", padx=(0, 10))
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x")
+        self._make_draggable_deep(h)
+        self._popup_menu(h, ("Quitter", self.quit))
+        self._popup_menu(title, ("Quitter", self.quit))
         return h
 
-    def _update_label(self, parent):
-        lbl = tk.Label(parent, text="", bg=BG, fg=CYAN, font=FONT, cursor="hand2",
+    def _update_label(self, parent, bg=BG):
+        lbl = tk.Label(parent, text="", bg=bg, fg=CYAN, font=FONT, cursor="hand2",
                        wraplength=330, justify="left", padx=10, pady=4)
         lbl.bind("<Button-1>", lambda e: self._open_update())
         self.lbl_update = lbl
@@ -205,8 +354,8 @@ class Overlay:
         if info:
             webbrowser.open(info["url"])
 
-    def _unfinished_label(self, parent):
-        lbl = tk.Label(parent, text="", bg=BG, fg=AMBER, font=FONT, cursor="hand2",
+    def _unfinished_label(self, parent, bg=BG):
+        lbl = tk.Label(parent, text="", bg=bg, fg=AMBER, font=FONT, cursor="hand2",
                        wraplength=330, justify="left", padx=10, pady=4)
         lbl.bind("<Button-1>", lambda e: self._dismiss_unfinished())
         self.lbl_unfinished = lbl
@@ -225,6 +374,24 @@ class Overlay:
         self._unfinished_info = None
         if hasattr(self, "lbl_unfinished") and self.lbl_unfinished.winfo_exists():
             self.lbl_unfinished.pack_forget()
+
+    def _layout_label(self, parent, bg=BG):
+        lbl = tk.Label(parent, text="", bg=bg, fg=AMBER, font=FONT, cursor="hand2",
+                       wraplength=330, justify="left", padx=10, pady=4)
+        lbl.bind("<Button-1>", lambda e: self._dismiss_layout())
+        self.lbl_layout = lbl
+        self._apply_layout_banner()
+
+    def _apply_layout_banner(self):
+        info = getattr(self, "_layout_info", None)
+        if info and hasattr(self, "lbl_layout") and self.lbl_layout.winfo_exists():
+            self.lbl_layout.config(text=f"⚠ {info['text']} Clique pour masquer.")
+            self.lbl_layout.pack(fill="x")
+
+    def _dismiss_layout(self):
+        self._layout_info = None
+        if hasattr(self, "lbl_layout") and self.lbl_layout.winfo_exists():
+            self.lbl_layout.pack_forget()
 
     def _build_start(self):
         self._clear()
@@ -246,6 +413,7 @@ class Overlay:
         self._btn(f, "Restaurer un tour…", self._restore_dialog).pack(anchor="w")
         self.start_msg = tk.Label(f, text="", bg=BG, fg=MUTE, font=FONT, wraplength=300, justify="left")
         self.start_msg.pack(anchor="w", pady=(8, 0))
+        self._relayout()
 
     def _start(self, color):
         self.cfg["last_color"] = color
@@ -260,130 +428,149 @@ class Overlay:
         threading.Thread(target=work, daemon=True).start()
 
     def _build_main(self, mode):
-        """Barre compacte : une ligne (round · phase · score · captures). Tout le reste est replié."""
+        """Icône flottante par défaut ; un clic la transforme en carte (round · phase · score · note · captures) —
+        jamais les deux formes à la fois."""
         self._clear()
         me = self.ctl.session.my_color
         self.mode = mode
-        bar = tk.Frame(self.root, bg=PANEL, padx=10, pady=6)
+        self.badge = tk.Label(self.root, bg=self._TKEY, bd=0, highlightthickness=0, cursor="hand2")
+        self.badge.pack(anchor="w")
+        self._make_draggable(self.badge, on_click=self._toggle_shell)
+        self._popup_menu(self.badge,
+                         ("Déplier/replier", self._toggle_shell),
+                         ("Film de la partie", self._open_film),
+                         (None, None),
+                         ("Quitter", self.quit))
+        self._shell_open = False
+        self.shell = tk.Frame(self.root, bg=PANEL)
+
+        bar = tk.Frame(self.shell, bg=PANEL, padx=10, pady=(4, 8), cursor="hand2")
         bar.pack(fill="x")
-        self.dot = tk.Label(bar, text="●", bg=PANEL, fg=GREEN if mode == "host" else AMBER, font=FONT_B)
-        self.dot.pack(side="left")
-        self.lbl_turn = tk.Label(bar, text="EN ATTENTE", bg=PANEL, fg=MUTE, font=(FONT_H[0], 12, "bold"))
-        self.lbl_turn.pack(side="left", padx=(6, 10))
+        top = tk.Frame(bar, bg=PANEL)
+        top.pack(fill="x")
+        self._window_controls(top)
+        row = tk.Frame(bar, bg=PANEL)
+        row.pack(fill="x", pady=(2, 0))
+        self.badge_mini = tk.Label(row, bg=PANEL, bd=0, highlightthickness=0, cursor="hand2")
+        self.badge_mini.pack(side="left")
+        info = tk.Frame(row, bg=PANEL)
+        info.pack(side="left", padx=(8, 0))
+        self.lbl_turn = tk.Label(info, text="EN ATTENTE", bg=PANEL, fg=MUTE, font=FONT_MONO, anchor="w")
+        self.lbl_turn.pack(anchor="w")
+        self.lbl_count = tk.Label(info, text="0 capture", bg=PANEL, fg=FAINT, font=FONT_MONO, anchor="w")
+        self.lbl_count.pack(anchor="w")
+        score = tk.Frame(row, bg=PANEL)
+        score.pack(side="right")
         self.sc = {}
         for c, col in (("Red", RED), ("Blue", BLUE)):
-            hidden = tk.Label(bar)  # nom du joueur : affiché seulement dans l'infobulle de la barre
-            v = tk.Label(bar, text="–", bg=PANEL, fg=col, font=(FONT_H[0], 14, "bold"))
+            hidden = tk.Label(row)  # nom du joueur : affiché seulement dans l'infobulle de la barre
+            v = tk.Label(score, text="–", bg=PANEL, fg=col, font=(FONT_H[0], 20, "bold"))
             self.sc[c] = (hidden, v)
         self.sc["Red"][1].pack(side="left")
-        tk.Label(bar, text="–", bg=PANEL, fg=FAINT, font=FONT).pack(side="left", padx=2)
+        tk.Label(score, text="–", bg=PANEL, fg=FAINT, font=FONT).pack(side="left", padx=3)
         self.sc["Blue"][1].pack(side="left")
-        self.b_more = tk.Label(bar, text="▾", bg=PANEL, fg=MUTE, font=(FONT_H[0], 13, "bold"), cursor="hand2", padx=4)
-        self.b_more.pack(side="right")
-        self.b_more.bind("<Button-1>", lambda e: self._toggle_more())
-        self.lbl_count = tk.Label(bar, text="0", bg=PANEL, fg=FAINT, font=FONT_MONO)
-        self.lbl_count.pack(side="right", padx=(8, 4))
-        tk.Label(bar, text="CAPT.", bg=PANEL, fg=FAINT, font=FONT_MONO).pack(side="right")
-        tk.Frame(self.root, bg=BORDER, height=1).pack(fill="x")
-        self._update_label(self.root)
-        self._unfinished_label(self.root)
+        self._make_draggable_deep(bar, on_click=self._toggle_shell)
+        tk.Frame(self.shell, bg=BORDER, height=1).pack(fill="x")
+
+        self._update_label(self.shell, bg=PANEL)
+        self._unfinished_label(self.shell, bg=PANEL)
+        self._layout_label(self.shell, bg=PANEL)
         # ligne d'état : visible seulement s'il y a quelque chose d'important à dire
-        self.lbl_status = tk.Label(self.root, text="", fg=MUTE, bg=BG, font=FONT, anchor="w", wraplength=330,
-                                   justify="left", padx=10)
-        self.alert = tk.Frame(self.root, bg=ALERT, padx=10, pady=6, highlightthickness=1, highlightbackground=CORAL)
-        self.alert_lbl = tk.Label(self.alert, text="", bg=ALERT, fg=INK, font=FONT_B, wraplength=300, justify="left")
+        self.lbl_status = tk.Label(self.shell, text="", fg=MUTE, bg=PANEL, font=FONT, anchor="w", wraplength=300,
+                                   justify="left", padx=12)
+        self.alert = tk.Frame(self.shell, bg=ALERT, padx=10, pady=6, highlightthickness=1, highlightbackground=CORAL)
+        self.alert_lbl = tk.Label(self.alert, text="", bg=ALERT, fg=INK, font=FONT_B, wraplength=280, justify="left")
         self.alert_lbl.pack(anchor="w")
         ar = tk.Frame(self.alert, bg=ALERT)
         ar.pack(anchor="w", pady=(6, 0))
         self._btn(ar, "Rattraper", self._catch_up, kind="primary").pack(side="left")
         self._btn(ar, "Ignorer", self._dismiss).pack(side="left", padx=6)
-        self.alert_anchor = tk.Frame(self.root, bg=BG)
+        self.alert_anchor = tk.Frame(self.shell, bg=PANEL)
         self.alert_anchor.pack(fill="x")
 
-        # --- partie repliée
-        self.more = tk.Frame(self.root, bg=BG, padx=12, pady=10)
-        f = self.more
-        tk.Label(f, text="Tout est capturé automatiquement à chaque fin de phase.\nRien à faire : ajoute une intention seulement si tu veux.",
-                 bg=BG, fg=FAINT, font=FONT, justify="left").pack(anchor="w")
-        self._label(f, "Intention · ce que j'attends (facultatif)").pack(fill="x", pady=(10, 3))
-        box, self.e_intent = self._field(f)
-        box.pack(fill="x")
-        self._label(f, "Note libre").pack(fill="x", pady=(8, 3))
+        f = tk.Frame(self.shell, bg=PANEL, padx=12, pady=10)
+        f.pack(fill="x")
+        tk.Label(f, text="Tout est capturé automatiquement à chaque fin de phase.\nRien à faire : ajoute une note seulement si tu veux.",
+                 bg=PANEL, fg=FAINT, font=FONT, justify="left").pack(anchor="w")
+        self._label(f, "Note (facultatif)", bg=PANEL).pack(fill="x", pady=(10, 3))
         box, self.e_note = self._field(f, multiline=True)
         box.pack(fill="x")
         self.guest = None
         if mode == "guest":
-            g = tk.Frame(f, bg=BG)
+            g = tk.Frame(f, bg=PANEL)
             g.pack(fill="x", pady=(6, 0))
-            tk.Label(g, text="TTS ne répond pas : pas de lecture de la table.", fg=AMBER, bg=BG, font=FONT,
+            tk.Label(g, text="TTS ne répond pas : pas de lecture de la table.", fg=AMBER, bg=PANEL, font=FONT,
                      justify="left").grid(row=0, column=0, columnspan=6, sticky="w")
             self.guest = {}
             for col, (k, lab, w) in enumerate((("round", "Round", 3), ("me", "Moi", 4), ("opp", "Adv.", 4))):
-                tk.Label(g, text=lab.upper(), fg=FAINT, bg=BG, font=FONT_MONO).grid(row=1, column=col * 2, sticky="w", padx=(0, 4), pady=(6, 0))
-                e = tk.Entry(g, bg=PANEL, fg=INK, insertbackground=CYAN, relief="flat", font=FONT, width=w,
+                tk.Label(g, text=lab.upper(), fg=FAINT, bg=PANEL, font=FONT_MONO).grid(row=1, column=col * 2, sticky="w", padx=(0, 4), pady=(6, 0))
+                e = tk.Entry(g, bg=RAISED, fg=INK, insertbackground=CYAN, relief="flat", font=FONT, width=w,
                              highlightthickness=1, highlightbackground=BORDER, highlightcolor=CYAN)
                 e.grid(row=1, column=col * 2 + 1, sticky="w", padx=(0, 10))
                 self.guest[k] = e
-            gb = tk.Frame(g, bg=BG)
+            gb = tk.Frame(g, bg=PANEL)
             gb.grid(row=2, column=0, columnspan=6, sticky="w", pady=(6, 0))
             self._btn(gb, "Reconnecter", self._retry).pack(side="left")
             self._btn(gb, "Diagnostic", self._diagnose).pack(side="left", padx=6)
         hk = self.cfg.get("hotkey", "f8").upper()
         self.b_cap = self._btn(f, f"Capturer avec cette note   [{hk}]", self._capture, kind="primary")
         self.b_cap.pack(fill="x", pady=(10, 4), ipady=3)
-        if mode == "host":
-            self.v_photo = tk.BooleanVar(value=bool(self.cfg.get("photo_on_capture", False)))
-            def _toggle():
-                self.cfg["photo_on_capture"] = self.v_photo.get()
-                self.save_cfg(self.cfg)
-            tk.Checkbutton(f, text="Avec capture d'écran (bouge ta caméra)", variable=self.v_photo, command=_toggle,
-                           bg=BG, fg=MUTE, selectcolor=PANEL, activebackground=BG, activeforeground=INK,
-                           font=FONT, anchor="w", highlightthickness=0, bd=0).pack(fill="x")
+        # réglages (capture d'écran, fichier anonyme, envoi) : réglés une fois, pas à revoir à chaque partie
+        self.v_photo = tk.BooleanVar(value=bool(self.cfg.get("photo_on_capture", False)))
         self.v_contrib = tk.BooleanVar(value=self.cfg.get("contribution") == "oui")
-        def _toggle_contrib():
-            self.cfg["contribution"] = "oui" if self.v_contrib.get() else "non"
-            self.save_cfg(self.cfg)
-        tk.Checkbutton(f, text="Créer un fichier anonyme pour les stats (rien n'est envoyé)", variable=self.v_contrib,
-                       command=_toggle_contrib, bg=BG, fg=MUTE, selectcolor=PANEL, activebackground=BG,
-                       activeforeground=INK, font=FONT, anchor="w", highlightthickness=0, bd=0).pack(fill="x")
-        if upload.settings(self.cfg):
-            self.v_envoi = tk.BooleanVar(value=self.cfg.get("envoi") == "oui")
-            def _toggle_envoi():
-                self.cfg["envoi"] = "oui" if self.v_envoi.get() else "non"
-                self.save_cfg(self.cfg)
-            tk.Checkbutton(f, text="Envoyer ce fichier anonyme à la fin de chaque partie", variable=self.v_envoi,
-                           command=_toggle_envoi, bg=BG, fg=MUTE, selectcolor=PANEL, activebackground=BG,
-                           activeforeground=INK, font=FONT, anchor="w", highlightthickness=0, bd=0).pack(fill="x")
-        tk.Frame(f, bg=BORDER, height=1).pack(fill="x", pady=(8, 8))
-        bot = tk.Frame(f, bg=BG)
+        self.v_envoi = tk.BooleanVar(value=self.cfg.get("envoi") == "oui")
+        tk.Frame(self.shell, bg=BORDER, height=1).pack(fill="x")
+        bot = tk.Frame(self.shell, bg=PANEL, padx=10, pady=7)
         bot.pack(fill="x")
-        self._btn(bot, "Film", self._open_film).pack(side="left")
+        self._btn(bot, "🎬", self._open_film, font=(FONT_H[0], 13)).pack(side="left")
         if mode == "host":
-            self._btn(bot, "Vue", self._camera_dialog).pack(side="left", padx=(6, 0))
-            self._btn(bot, "Diag", self._diagnose).pack(side="left", padx=(6, 0))
-        self._btn(bot, "Restaurer", self._restore_dialog).pack(side="left", padx=(6, 0))
+            self._btn(bot, "🎥", self._camera_dialog, font=(FONT_H[0], 13)).pack(side="left", padx=(4, 0))
+            self._btn(bot, "⚕", self._diagnose, font=(FONT_H[0], 13)).pack(side="left", padx=(4, 0))
+        self._btn(bot, "↺", self._restore_dialog, font=(FONT_H[0], 13)).pack(side="left", padx=(4, 0))
+        gear = self._btn(bot, "⚙", lambda: self._open_settings_menu(gear), font=(FONT_H[0], 13))
+        gear.pack(side="left", padx=(4, 0))
         self._btn(bot, "Terminer", self._finish, kind="danger").pack(side="right")
-        self.n_caps = 0
-        self._more_open = False
 
-    def _toggle_more(self):
-        self._more_open = not self._more_open
-        if self._more_open:
-            self.more.pack(fill="x")
-            self.b_more.config(text="▴")
-            self.e_intent.focus_set()
+        self._round_corners(self.shell)
+        self.n_caps = 0
+        self._update_badge()
+        self._relayout()
+
+    def _toggle_shell(self):
+        """Clic sur l'icône (repliée ou dans l'en-tête de la carte) : l'une remplace l'autre, jamais les deux ensemble."""
+        self._shell_open = not self._shell_open
+        if self._shell_open:
+            self.badge.pack_forget()
+            self.shell.pack(fill="x")
         else:
-            self.more.pack_forget()
-            self.b_more.config(text="▾")
+            self.shell.pack_forget()
+            self.badge.pack(anchor="w")
+        self._relayout()
 
     # ------------------------------------------------------------ actions
+    def _open_settings_menu(self, anchor):
+        """Réglages (capture d'écran, fichier anonyme, envoi) : dans un menu à part, pas affichés en
+        permanence — on les règle une fois, pas besoin de les revoir à chaque partie."""
+        def _toggle(key, var, on="oui", off="non"):
+            self.cfg[key] = (on if var.get() else off) if key != "photo_on_capture" else var.get()
+            self.save_cfg(self.cfg)
+        m = tk.Menu(self.root, tearoff=0, bg=PANEL, fg=INK, activebackground=RAISED,
+                   activeforeground=INK, selectcolor=INK, bd=0, relief="flat")
+        if self.mode == "host":
+            m.add_checkbutton(label="Capture d'écran (bouge ta caméra)", variable=self.v_photo,
+                              command=lambda: _toggle("photo_on_capture", self.v_photo))
+        m.add_checkbutton(label="Fichier anonyme pour les stats (rien n'est envoyé)", variable=self.v_contrib,
+                          command=lambda: _toggle("contribution", self.v_contrib))
+        if upload.settings(self.cfg):
+            m.add_checkbutton(label="Envoyer ce fichier anonyme à la fin de chaque partie", variable=self.v_envoi,
+                              command=lambda: _toggle("envoi", self.v_envoi))
+        m.tk_popup(anchor.winfo_rootx(), anchor.winfo_rooty() + anchor.winfo_height())
+
     def _texts(self, clear=True):
-        intent = self.e_intent.get()
         note = self.e_note.get("1.0", "end").strip()
         if clear:
-            self.e_intent.delete(0, "end")
             self.e_note.delete("1.0", "end")
-        return intent, note
+        return note
 
     def _guest_score(self):
         if not self.guest:
@@ -416,12 +603,12 @@ class Overlay:
     def _capture(self):
         if not getattr(self.ctl, "session", None) or not hasattr(self, "b_cap") or not self.b_cap.winfo_exists():
             return
-        intent, note = self._texts()
-        self._run(self.ctl.capture, "manual", intent, note, manual_score=self._guest_score())
+        note = self._texts()
+        self._run(self.ctl.capture, "manual", "", note, manual_score=self._guest_score())
 
     def _catch_up(self):
-        intent, note = self._texts()
-        self._run(self.ctl.catch_up, intent, note)
+        note = self._texts()
+        self._run(self.ctl.catch_up, "", note)
 
     def _dismiss(self):
         self.ctl.dismiss_alert()
@@ -677,18 +864,32 @@ class Overlay:
         elif ev == "update":
             self._update_info = p
             self._apply_update_banner()
+            self._update_badge()
+            self._relayout()
         elif ev == "unfinished":
             self._unfinished_info = p
             self._apply_unfinished_banner()
+            self._update_badge()
+            self._relayout()
+        elif ev == "layout_warn":
+            self._layout_info = p
+            self._apply_layout_banner()
+            self._update_badge()
+            self._relayout()
         elif ev == "alert" and hasattr(self, "alert"):
             self.alert_lbl.config(text=f"⚠  {p['text']}")
             self.alert.pack(fill="x", padx=8, pady=(6, 6), before=self.alert_anchor)
             beep()
+            self._update_badge()
+            self._relayout()
         elif ev == "alert_clear" and hasattr(self, "alert") and self.alert.winfo_exists():
             self.alert.pack_forget()
+            self._update_badge()
+            self._relayout()
         elif ev == "captured":
             if hasattr(self, "lbl_count") and self.lbl_count.winfo_exists() and self.ctl.session:
-                self.lbl_count.config(text=str(len(self.ctl.session.game["captures"])))
+                n = len(self.ctl.session.game["captures"])
+                self.lbl_count.config(text=f"{n} capture" + ("" if n == 1 else "s"))
             if p["kind"] in ("manual", "catchup"):
                 self._status(f"✓ Capturé : {p['label']}", "#8fd18f")
             else:
