@@ -503,11 +503,13 @@ class Overlay:
         tk.Frame(self.shell, bg=BORDER, height=1).pack(fill="x")
         bot = tk.Frame(self.shell, bg=PANEL, padx=10, pady=7)
         bot.pack(fill="x")
-        self._btn(bot, "🎬", self._open_film, font=(FONT_H[0], 13)).pack(side="left")
+        # texte plutôt qu'icônes : un glyphe Unicode obscur (⚕, ↺…) ne s'affiche pas pareil
+        # (ou pas du tout) selon les polices installées — "Diag" se comprend toujours, pas ⚕.
+        self._btn(bot, "Film", self._open_film).pack(side="left")
         if mode == "host":
-            self._btn(bot, "🎥", self._camera_dialog, font=(FONT_H[0], 13)).pack(side="left", padx=(4, 0))
-            self._btn(bot, "⚕", self._diagnose, font=(FONT_H[0], 13)).pack(side="left", padx=(4, 0))
-        self._btn(bot, "↺", self._restore_dialog, font=(FONT_H[0], 13)).pack(side="left", padx=(4, 0))
+            self._btn(bot, "Vue", self._camera_dialog).pack(side="left", padx=(4, 0))
+            self._btn(bot, "Diag", self._diagnose).pack(side="left", padx=(4, 0))
+        self._btn(bot, "Restaurer", self._restore_dialog).pack(side="left", padx=(4, 0))
         gear = self._btn(bot, "⚙", lambda: self._open_settings_menu(gear), font=(FONT_H[0], 13))
         gear.pack(side="left", padx=(4, 0))
         self._btn(bot, "Terminer", self._finish, kind="danger").pack(side="right")
