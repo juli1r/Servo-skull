@@ -123,8 +123,6 @@ def exact_center(px: float, pz: float, ry: float, cx: float, cz: float, w: float
 # data/layouts_officiels.json : 45 layouts, empreintes extraites du PDF (repère page : 44 x 60, attaquant en haut).
 _LAY = None
 DISPOSITIONS = ("TAKE AND HOLD", "PURGE THE FOE", "RECONNAISSANCE", "PRIORITY ASSETS", "DISRUPTION")
-# trapèze rectangle 8 / 2 x 11,5 dans le repère de l'objet TTS (mesuré sur les layouts officiels)
-LOCAL_TRAP = ((2.94, 6.33), (6.95, -0.70), (-3.10, -6.45), (-4.12, -4.67))
 
 
 def _layouts() -> list:
@@ -273,20 +271,11 @@ def overlap(foot: list, fit: dict) -> list:
     return out
 
 
-def _official_terrain(fit: dict) -> list:
-    """Empreintes EXACTES du PDF (contours officiels), converties dans le repère de la table TTS."""
-    out = []
-    for f in fit["l"]["footprints"]:
-        pts = [list(_pdf_world(u, v, fit["sg"])) for u, v in f["poly"]]
-        xs, zs = [p[0] for p in pts], [p[1] for p in pts]
-        out.append([round((max(xs) + min(xs)) / 2, 2), round((max(zs) + min(zs)) / 2, 2), 0,
-                    round(max(xs) - min(xs), 2), round(max(zs) - min(zs), 2), 1, 1, pts])
-    return out
-
-
 def _official(terrain: list, cache: dict) -> None:
-    """Si la table est un layout officiel : les empreintes de décors sont remplacées par celles du PDF
-    (contour exact). Sinon : trapèze type orienté comme l'objet TTS. L'ajustement est noté dans cache["_fit"]."""
+    """Vérifie si la table correspond à un layout officiel (Event Companion) et note l'écart dans
+    cache["_fit"] (utilisé pour l'alerte de conformité). Le film affiche TOUJOURS la géométrie
+    mesurée sur TTS telle quelle — jamais une forme reconstituée ou redessinée depuis le PDF : seule
+    la vérification est comparée au document, pas ce qui est montré à l'écran."""
     memo = cache.setdefault("_fitmemo", {})
     key = tuple((round(t[0], 1), round(t[1], 1)) for t in terrain if len(t) > 6 and t[6])
     if key not in memo:
@@ -298,37 +287,12 @@ def _official(terrain: list, cache: dict) -> None:
             fit["ok"] = fit.get("known") or (fit["overlap"] >= 0.6 and fit["ov_min"] >= 0.25)
         memo[key] = fit
     fit = memo[key]
-    if fit and not fit["ok"]:  # trop différent : on n'affiche PAS un layout officiel faux, on le signale
+    if fit and not fit["ok"]:  # trop différent : pas d'identification fiable, on le signale
         cache["_fit"] = {"rejected": True, "page": fit["page"], "layout": fit["layout"], "overlap": round(fit["overlap"], 2)}
-        fit = None
-        for t in terrain:
-            if len(t) > 7 and t[6] and t[7] and not isinstance(t[7], list):
-                th = math.radians(t[2]); c, s_ = math.cos(th), math.sin(th)
-                t[7] = [[round(t[0] + lx * c - lz * s_, 3), round(t[1] + lx * s_ + lz * c, 3)] for lx, lz in LOCAL_TRAP]
         return
     cache["_fit"] = ({k: fit[k] for k in ("page", "layout", "n", "of", "mean", "max", "overlap", "known", "far")} | {"name": _fit_name(fit["head"])}) if fit else None
     if fit:
         cache["_fit"]["zones"] = {k: [list(_pdf_world(u, v, fit["sg"])) for u, v in pts] for k, pts in (fit["l"].get("zones") or {}).items()}
-    if fit:
-        off = _official_terrain(fit)
-        polys = [f[7] for f in off]
-        kept = []
-        for t in terrain:
-            if len(t) > 6 and t[6]:
-                continue  # remplacé par l'empreinte officielle exacte (off)
-            host = next((p for p in polys if _pt_in(t[0], t[1], p)), None)
-            if host is not None:
-                # décor (mur, tour...) qui appartient à cette ruine : affiché découpé à son contour
-                # exact, jamais au-delà — aucun décor ne dépasse de son empreinte en 10e/11e, donc un
-                # dépassement visible ne peut venir que du rectangle brut mesuré, jamais de la vraie table
-                t = (t + [0] * (8 - len(t)))[:8] + [host]
-            kept.append(t)
-        terrain[:] = kept + off
-        return
-    for t in terrain:
-        if len(t) > 7 and t[6] and t[7] and not isinstance(t[7], list):
-            th = math.radians(t[2]); c, s_ = math.cos(th), math.sin(th)
-            t[7] = [[round(t[0] + lx * c - lz * s_, 3), round(t[1] + lx * s_ + lz * c, 3)] for lx, lz in LOCAL_TRAP]
 
 
 def _in_poly(x: float, z: float, poly: list) -> bool:

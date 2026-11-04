@@ -1,6 +1,8 @@
-"""Vérifie que la table de chaque partie est identique à un layout du Event Companion.
+"""Vérifie que la table de chaque partie est identifiable comme un layout du Event Companion.
 Usage: python tests/verif_layout.py [filtre]   (code retour 1 si une table à décors n'est pas reconnue / s'écarte)
-Contrôles : layout reconnu parmi les 45 ; écart moyen <= 1,0" ; tous les décors dessinés = contours PDF ; zones présentes."""
+Contrôles : layout reconnu parmi les 45 ; écart moyen <= 1,0" ; zones présentes. Le film affiche
+toujours la géométrie mesurée sur TTS (jamais une forme reconstituée du PDF), donc ce script ne
+contrôle que l'IDENTIFICATION du layout, pas ce qui est dessiné."""
 import sys, math
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
@@ -23,13 +25,9 @@ for d in sorted(root.iterdir()):
         print(f"sans décors {d.name}"); continue
     if not fit:
         print(f"NON RECONNUE {d.name} ({foot} décors) -> pas de layout officiel, carte approximative"); bad += 1; continue
-    probs = []
     if fit.get("rejected"):
         print(f"REJETÉE    {d.name}: ressemble au layout {fit['layout']} (p.{fit['page']}) mais recouvrement {fit['overlap']:.0%} -> formes TTS affichées, à vérifier à la main"); bad += 1; continue
-    if not fit.get("zones", {}).get("atk"): probs.append("zones absentes")
-    for c in data["captures"]:
-        for t in c.get("terrain") or []:
-            if len(t) > 6 and t[6] and not isinstance(t[7], list): probs.append("décor non officiel dessiné"); break
+    probs = [] if fit.get("zones", {}).get("atk") else ["zones absentes"]
     print(("OK         " if not probs else "ÉCART      ") + f"{d.name}: {fit['name']} layout {fit['layout']} (PDF p.{fit['page']}), {fit['n']}/{fit['of']} décors, recouvrement des formes {fit['overlap']:.0%}" + (" | " + ", ".join(probs) if probs else ""))
     bad += bool(probs)
 sys.exit(1 if bad else 0)
