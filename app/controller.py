@@ -12,7 +12,7 @@ import contribution
 import cogitator_export
 import upload
 import lua_scripts as L
-from core import Session, TurnTracker, normalize_state, phase_label, turn_label
+from core import Session, TurnTracker, normalize_state, turn_label
 from tts_client import TTSClient, TTSError, TTSUnavailable
 
 
@@ -293,17 +293,16 @@ class Controller:
             self._events.put(msg)
 
     def _on_stale(self, msg: dict):
-        """Phase inchangée depuis longtemps alors que beaucoup de figurines ont bougé : on prévient l'hôte."""
+        """Aucun mouvement ni jet de dés depuis longtemps : la partie semble en pause, on prévient l'hôte."""
         import json as _json
         try:
             info = _json.loads(msg.get("json") or "{}")
         except ValueError:
             info = {}
-        ph = phase_label((self.state or {}).get("phaseName")) if isinstance(self.state, dict) else ""
         self._stale_alert = True
-        self.client.log(f"[phase] bloquée : {info}")
-        self.emit("alert", {"text": f"Phase « {ph or '?'} » depuis {info.get('minutes', '?')} min avec {info.get('drops', '?')} "
-                                    "déplacements : passez à la phase suivante, sinon le film regroupera tout."})
+        self.client.log(f"[inactivité] {info}")
+        self.emit("alert", {"text": f"Aucun mouvement ni jet de dés depuis {info.get('minutes', '?')} min : "
+                                    "la partie est en pause ?"})
 
     def _event_worker(self):
         import json as _json
@@ -334,8 +333,7 @@ class Controller:
 
     def _install_watch(self) -> dict:
         st = self.client.run_lua(L.watch_install(self.cfg.get("watch_interval_s", 2.0),
-                                                  stale_drops=self.cfg.get("stale_drops", 25),
-                                                  stale_s=int(self.cfg.get("stale_minutes", 8) * 60)), timeout=5)
+                                                  stale_s=int(self.cfg.get("stale_minutes", 7) * 60)), timeout=5)
         self._last_beat = time.monotonic()
         return st
 

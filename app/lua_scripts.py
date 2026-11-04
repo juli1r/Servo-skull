@@ -356,7 +356,7 @@ return out
 """
 
 
-def watch_install(interval: float = 2.0, heartbeat_ticks: int = 30, stale_drops: int = 15, stale_s: int = 240) -> str:
+def watch_install(interval: float = 2.0, heartbeat_ticks: int = 30, stale_s: int = 420) -> str:
     """Veilleur Lua dans TTS (en mémoire) : regarde tour/phase toutes les `interval` s sans réseau,
     et ne prévient Servo-Skull (sendExternalMessage) que si ça change, + un signe de vie par minute.
     Les identifiants des minuteurs sont rangés dans le vrai Global (Global.setVar) pour pouvoir
@@ -367,9 +367,12 @@ for _, id in ipairs(old) do pcall(function() Wait.stop(id) end) end
 -- ordre réel des déplacements : chaque figurine posée est notée (guid, n° d'ordre, position).
 -- Le Global de LCT n'a pas de onObjectDrop ; s'il en avait un, il serait appelé ensuite.
 if SERVO_SKULL_ORIG_DROP == nil then SERVO_SKULL_ORIG_DROP = onObjectDrop or false end
+if SERVO_SKULL_ORIG_RANDOMIZE == nil then SERVO_SKULL_ORIG_RANDOMIZE = onObjectRandomize or false end
 SERVO_SKULL_DROPS = SERVO_SKULL_DROPS or {{}}
 SERVO_SKULL_SEQ = SERVO_SKULL_SEQ or 0
+SERVO_SKULL_LAST_ACTIVITY = SERVO_SKULL_LAST_ACTIVITY or os.time()  -- dernier mouvement OU jet de dés
 onObjectDrop = function(color, obj)
+  SERVO_SKULL_LAST_ACTIVITY = os.time()  -- toute figurine/objet bougé compte comme activité
   pcall(function()
     local n = obj.getName() or ""
     if string.find(n, "^%[%x%x%x%x%x%x%]%d+/%d+%[%-%]") ~= nil and #SERVO_SKULL_DROPS < 3000 then
@@ -380,10 +383,14 @@ onObjectDrop = function(color, obj)
   end)
   if SERVO_SKULL_ORIG_DROP then return SERVO_SKULL_ORIG_DROP(color, obj) end
 end
+onObjectRandomize = function(obj, success)
+  SERVO_SKULL_LAST_ACTIVITY = os.time()  -- un jet de dés compte comme activité
+  if SERVO_SKULL_ORIG_RANDOMIZE then return SERVO_SKULL_ORIG_RANDOMIZE(obj, success) end
+end
 local last, beat = "", 0
 local __clk = (os ~= nil and os.clock) or function() return 0 end
 local tmax, tsum, tn = 0, 0, 0
-local since, staleSent = os.time(), false  -- depuis quand la phase est inchangée ; alerte déjà envoyée ?
+local staleSent = false  -- alerte d'inactivité déjà envoyée pour la coupure en cours ?
 local id = Wait.time(function()
   local c0 = __clk()
   local ok, err = pcall(function()
@@ -393,11 +400,13 @@ local id = Wait.time(function()
       k = tostring(sm.getVar("currentTurn")) .. "|" .. tostring(sm.getVar("currentPhase")) .. "|" .. tostring(sm.getVar("inGame"))
     end
     beat = beat + 1
-    if k ~= last then since = os.time(); staleSent = false end
-    -- beaucoup de figurines posées, phase inchangée depuis longtemps : les joueurs ont sans doute oublié de passer la phase
-    if not staleSent and k ~= "?" and #SERVO_SKULL_DROPS >= {stale_drops} and os.time() - since >= {stale_s} then
+    -- aucun mouvement ni jet de dés depuis longtemps : la partie semble en pause
+    local idle = os.time() - SERVO_SKULL_LAST_ACTIVITY
+    if not staleSent and k ~= "?" and idle >= {stale_s} then
       staleSent = true
-      sendExternalMessage({{servoSkull = true, stale = true, json = JSON.encode({{drops = #SERVO_SKULL_DROPS, minutes = math.floor((os.time() - since) / 60)}})}})
+      sendExternalMessage({{servoSkull = true, stale = true, json = JSON.encode({{minutes = math.floor(idle / 60)}})}})
+    elseif idle < {stale_s} then
+      staleSent = false  -- activité reprise : l'alerte pourra ressortir si ça s'arrête de nouveau
     end
     if k ~= last or beat >= {heartbeat_ticks} then
       local changed = (k ~= last)
@@ -430,6 +439,7 @@ def watch_stop() -> str:
             'for _, id in ipairs(old) do pcall(function() Wait.stop(id) end) end\n'
             'Global.setTable("SERVO_SKULL_TIMERS", {})\n'
             'if SERVO_SKULL_ORIG_DROP ~= nil then onObjectDrop = SERVO_SKULL_ORIG_DROP or nil; SERVO_SKULL_ORIG_DROP = nil end\n'
+            'if SERVO_SKULL_ORIG_RANDOMIZE ~= nil then onObjectRandomize = SERVO_SKULL_ORIG_RANDOMIZE or nil; SERVO_SKULL_ORIG_RANDOMIZE = nil end\n'
             'SERVO_SKULL_DROPS = nil\nreturn #old\n')
 
 

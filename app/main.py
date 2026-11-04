@@ -24,8 +24,7 @@ DEFAULTS = {
     "watch_interval_s": 0.5,         # le veilleur, dans TTS, regarde tour/phase à ce rythme (sans réseau)
     "watchdog_s": 10.0,
     "watch_timeout_s": 90.0,
-    "stale_minutes": 8,               # alerte "phase bloquée" seulement après ce délai sans changement de phase
-    "stale_drops": 25,                # ...et seulement si au moins ce nombre de figurines ont été posées entre-temps
+    "stale_minutes": 7,                # alerte "partie en pause" après ce délai sans aucun mouvement ni jet de dés
     "debug_dump": False,
     "verbose_log": False,
     "auto_capture_after_movement": True,
@@ -71,6 +70,11 @@ def load_cfg() -> dict:
         save_cfg(cfg)
     if cfg.get("poll_interval_s") == 2.0:  # ancienne valeur par défaut, trop fréquente
         cfg["poll_interval_s"] = 3.0
+        save_cfg(cfg)
+    if "stale_drops" in cfg:  # ancien réglage : l'alerte se base maintenant sur l'inactivité, pas le nombre de figurines
+        cfg.pop("stale_drops")
+        if cfg.get("stale_minutes") == 8:  # ancienne valeur par défaut, calée sur l'ancienne logique
+            cfg["stale_minutes"] = 7
         save_cfg(cfg)
     if not cfg.get("replays_dir"):
         cfg["replays_dir"] = str(app_dir() / "parties")
