@@ -273,9 +273,10 @@ def overlap(foot: list, fit: dict) -> list:
 
 def _official(terrain: list, cache: dict) -> None:
     """Vérifie si la table correspond à un layout officiel (Event Companion) et note l'écart dans
-    cache["_fit"] (utilisé pour l'alerte de conformité). Le film affiche TOUJOURS la géométrie
-    mesurée sur TTS telle quelle — jamais une forme reconstituée ou redessinée depuis le PDF : seule
-    la vérification est comparée au document, pas ce qui est montré à l'écran."""
+    cache["_fit"] (utilisé pour l'alerte de conformité). Quand l'identification est fiable
+    (fit["ok"]), les socles de zone ("foot") sont redessinés avec le rectangle officiel exact du
+    PDF (position/taille), pas une forme approximée — seule la pièce officielle la plus proche de
+    chaque socle est substituée ; les décors nommés gardent leur géométrie TTS mesurée."""
     memo = cache.setdefault("_fitmemo", {})
     key = tuple((round(t[0], 1), round(t[1], 1)) for t in terrain if len(t) > 6 and t[6])
     if key not in memo:
@@ -293,6 +294,14 @@ def _official(terrain: list, cache: dict) -> None:
     cache["_fit"] = ({k: fit[k] for k in ("page", "layout", "n", "of", "mean", "max", "overlap", "known", "far")} | {"name": _fit_name(fit["head"])}) if fit else None
     if fit:
         cache["_fit"]["zones"] = {k: [list(_pdf_world(u, v, fit["sg"])) for u, v in pts] for k, pts in (fit["l"].get("zones") or {}).items()}
+        cs = [(_pdf_world(f["bbox"][0] + f["bbox"][2] / 2, f["bbox"][1] + f["bbox"][3] / 2, fit["sg"]), f) for f in fit["l"]["footprints"]]
+        letters = []
+        for t in terrain:
+            if len(t) > 6 and t[6]:
+                (x, z), f = min(cs, key=lambda cf: math.hypot(t[0] - cf[0][0], t[1] - cf[0][1]))
+                t[0], t[1], t[2], t[3], t[4] = x, z, 0, f["bbox"][3], f["bbox"][2]
+                letters.append(f.get("letter"))
+        cache["_fit"]["letters"] = letters
 
 
 def _in_poly(x: float, z: float, poly: list) -> bool:
