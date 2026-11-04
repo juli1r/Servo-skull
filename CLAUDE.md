@@ -24,3 +24,15 @@ Toujours complètes et autonomes (inclure le `cd` vers le dossier du projet si n
 ## 5. Ne jamais prendre le contrôle de l'écran/souris/clavier sans permission explicite et ponctuelle
 
 Une approbation générale ("go", "c'est fini go !") ne vaut pas pour une nouvelle action de contrôle d'écran. Chaque prise de contrôle se redemande.
+
+## 6. Décors du film (Event Companion) : aucun débordement d'empreinte, jamais
+
+Les 16 empreintes officielles d'un layout donné (paire de dispositions + lettre A/B/C) sont fixes,
+identiques quelle que soit la table — même kit physique, même géométrie, seule la combinaison
+change. Une fois le layout identifié avec confiance, les empreintes se dessinent telles quelles,
+à la position exacte du PDF (pas d'appariement pièce-par-pièce TTS pour la forme/position de
+l'empreinte elle-même — ça n'a jamais de raison d'être nécessaire).
+
+Règle stricte : **aucun élément de décor ne doit jamais dépasser de son empreinte officielle.**
+Si un rendu livré à l'utilisateur montre un débordement, c'est une erreur de ma part, point final —
+jamais une approximation acceptable.
