@@ -274,9 +274,10 @@ def overlap(foot: list, fit: dict) -> list:
 def _official(terrain: list, cache: dict) -> None:
     """Vérifie si la table correspond à un layout officiel (Event Companion) et note l'écart dans
     cache["_fit"] (utilisé pour l'alerte de conformité). Quand l'identification est fiable
-    (fit["ok"]), les socles de zone ("foot") sont redessinés avec le rectangle officiel exact du
-    PDF (position/taille), pas une forme approximée — seule la pièce officielle la plus proche de
-    chaque socle est substituée ; les décors nommés gardent leur géométrie TTS mesurée."""
+    (fit["ok"]), les socles de zone ("foot") sont redessinés avec le contour officiel réel du PDF
+    (t[7] devient la liste de points du polygone, pas un rectangle approximé — les empreintes ne
+    sont PAS des rectangles, même tournés, mais des silhouettes détaillées de 20 à 70 points) ;
+    les décors nommés gardent leur géométrie TTS mesurée."""
     memo = cache.setdefault("_fitmemo", {})
     key = tuple((round(t[0], 1), round(t[1], 1)) for t in terrain if len(t) > 6 and t[6])
     if key not in memo:
@@ -298,8 +299,14 @@ def _official(terrain: list, cache: dict) -> None:
         letters = []
         for t in terrain:
             if len(t) > 6 and t[6]:
-                (x, z), f = min(cs, key=lambda cf: math.hypot(t[0] - cf[0][0], t[1] - cf[0][1]))
-                t[0], t[1], t[2], t[3], t[4] = x, z, 0, f["bbox"][3], f["bbox"][2]
+                (cx, cz), f = min(cs, key=lambda cf: math.hypot(t[0] - cf[0][0], t[1] - cf[0][1]))
+                poly = [list(_pdf_world(px, py, fit["sg"])) for px, py in f["poly"]]
+                t[0], t[1], t[2] = sum(p[0] for p in poly) / len(poly), sum(p[1] for p in poly) / len(poly), 0
+                t[3], t[4] = f["bbox"][3], f["bbox"][2]
+                if len(t) > 7:
+                    t[7] = poly
+                else:
+                    t.append(poly)
                 letters.append(f.get("letter"))
         cache["_fit"]["letters"] = letters
 
