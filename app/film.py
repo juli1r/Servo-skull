@@ -312,11 +312,18 @@ def _official(terrain: list, cache: dict) -> None:
     if fit:
         off = _official_terrain(fit)
         polys = [f[7] for f in off]
-        # un décor brut (mur, tour...) dont le centre tombe dans une empreinte officielle est la même
-        # ruine que cette empreinte, déjà représentée par son contour exact : pas de 2e forme approx.
-        # par-dessus (aucun décor ne dépasse de son empreinte en 10e/11e, donc un dépassement visible
-        # ne peut venir que de cette double forme, jamais de la vraie table)
-        terrain[:] = [t for t in terrain if not (len(t) > 6 and t[6]) and not any(_pt_in(t[0], t[1], p) for p in polys)] + off
+        kept = []
+        for t in terrain:
+            if len(t) > 6 and t[6]:
+                continue  # remplacé par l'empreinte officielle exacte (off)
+            host = next((p for p in polys if _pt_in(t[0], t[1], p)), None)
+            if host is not None:
+                # décor (mur, tour...) qui appartient à cette ruine : affiché découpé à son contour
+                # exact, jamais au-delà — aucun décor ne dépasse de son empreinte en 10e/11e, donc un
+                # dépassement visible ne peut venir que du rectangle brut mesuré, jamais de la vraie table
+                t = (t + [0] * (8 - len(t)))[:8] + [host]
+            kept.append(t)
+        terrain[:] = kept + off
         return
     for t in terrain:
         if len(t) > 7 and t[6] and t[7] and not isinstance(t[7], list):

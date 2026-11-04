@@ -544,9 +544,15 @@ function draw(){
   drawZones(svg);
   const bottom=redDown()?"Red":"Blue";el("rect",{x:-W/2,y:H/2-.3,width:W,height:.3,fill:colOf(bottom)},svg);el("rect",{x:-W/2,y:-H/2,width:W,height:.3,fill:colOf(OTHER[bottom])},svg);
   if(!c||!c.units){const t=el("text",{x:0,y:0,fill:"#8e95a8","font-size":1.4,"text-anchor":"middle"},svg);t.textContent="Pas de positions pour ce moment";return}
+  let clipN=0;
   for(const t of c.terrain.filter(t=>t[5]===1).concat(c.terrain.filter(t=>t[5]===0))){const [x,y]=proj(t[0],t[1]);
     if(Array.isArray(t[7])){el("polygon",{points:t[7].map(v=>proj(v[0],v[1]).join(",")).join(" "),fill:"#232c42",stroke:"#3d4a66","stroke-width":.06,"stroke-linejoin":"round"},svg);continue}
-    el("rect",{x:-t[3]/2,y:-t[4]/2,width:t[3],height:t[4],fill:t[5]?"#232c42":"#2a3348","fill-opacity":t[5]?1:.5,stroke:t[6]?"#3d4a66":t[5]?"none":"#4a5578","stroke-width":t[6]?.06:.08,"stroke-dasharray":t[5]?"none":".4 .25",rx:t[6]?.05:.12,transform:`translate(${x} ${y}) rotate(${rotDeg(t[2])})`},svg)}
+    const rectAttr={x:-t[3]/2,y:-t[4]/2,width:t[3],height:t[4],fill:t[5]?"#232c42":"#2a3348","fill-opacity":t[5]?1:.5,stroke:t[6]?"#3d4a66":t[5]?"none":"#4a5578","stroke-width":t[6]?.06:.08,"stroke-dasharray":t[5]?"none":".4 .25",rx:t[6]?.05:.12,transform:`translate(${x} ${y}) rotate(${rotDeg(t[2])})`};
+    if(Array.isArray(t[8])){ // décor dont la ruine (empreinte officielle) est connue : jamais dessiné au-delà de son contour
+      const cid="clip"+(clipN++);
+      el("polygon",{points:t[8].map(v=>proj(v[0],v[1]).join(",")).join(" ")},el("clipPath",{id:cid},defs));
+      el("rect",rectAttr,el("g",{"clip-path":`url(#${cid})`},svg));continue}
+    el("rect",rectAttr,svg)}
   for(const o of c.objectives){const [x,y]=proj(o[0],o[1]);const ar=o[3]||null;const pr=presence(o,c.units);const who=pr.Red&&pr.Blue?"both":pr.Red?"Red":pr.Blue?"Blue":null;
     const col=who==="both"?"#fbbf24":who?colOf(who):"#fbbf24";const g=el("g",{},svg);
     if(ar&&Array.isArray(ar[5])){el("polygon",{points:ar[5].map(v=>proj(v[0],v[1]).join(",")).join(" "),"stroke-linejoin":"round",fill:!who?"none":who!=="both"?(who==="Red"?"rgba(248,113,113,.16)":"rgba(55,138,221,.2)"):"rgba(251,191,36,.07)",stroke:who?col:"#8e95a8","stroke-width":who?.2:.1,opacity:who?1:.45},g)}
