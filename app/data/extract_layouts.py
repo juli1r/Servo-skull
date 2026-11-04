@@ -3,7 +3,8 @@ Usage: python extract_layouts.py companion.pdf out.json [ancien.json]
 Repère: origine = coin haut-gauche du plateau tel que dessiné sur la page (attaquant en haut), 44x60.
 Si [ancien.json] est fourni, les clés 'zones' (par layout) et 'trap' (par empreinte) de l'ancien
 fichier sont reportées sur le nouveau (par page puis par bbox le plus proche) : ce script ne sait
-pas les recalculer lui-même, seulement ajouter la lettre ('letter': AB/CD/EF/GH)."""
+pas les recalculer lui-même, seulement ajouter la ou les lettres ('letters': [AB/CD/EF/GH, ...] —
+une empreinte peut porter plusieurs lettres à la fois si le badge PDF chevauche son contour)."""
 import sys, re, json, math, pdfplumber
 
 LETTERS = ('AB', 'CD', 'EF', 'GH')
@@ -19,9 +20,34 @@ def grey(o):
     return o.get('fill') and str(o.get('non_stroking_color'))[:22] == '(0.0, 0.0, 0.0, 0.2)'
 
 def nearest_letter(cx, cy, labels):
-    # labels: [(texte, cx, cy), ...] en coordonnées points PDF, mêmes unités que cx/cy
+    # labels: [(texte, cx, cy), ...] ; cx/cy et les labels doivent être dans le même repère
     if not labels: return None
     return min(labels, key=lambda l: (l[1] - cx) ** 2 + (l[2] - cy) ** 2)[0]
+
+def _in_poly(x, z, poly):
+    # même logique que app/film.py:_in_poly (ray casting), dupliquée pour ne pas ajouter
+    # de dépendance entre ce script d'extraction et le reste de l'app.
+    ins = False
+    j = len(poly) - 1
+    for i in range(len(poly)):
+        xi, zi = poly[i]; xj, zj = poly[j]
+        if (zi > z) != (zj > z) and x < (xj - xi) * (z - zi) / (zj - zi + 1e-12) + xi:
+            ins = not ins
+        j = i
+    return ins
+
+def letters_for(poly, labels_in):
+    # une empreinte peut porter plusieurs badges à la fois (pièce qui chevauche deux groupes de
+    # lettres, cf. Event Companion p.11 : même contour marqué "EF" ET "GH") : on prend tous les
+    # badges dont le point tombe dans le contour ; si aucun n'y tombe (la plupart des empreintes
+    # n'ont pas de badge dessiné dessus, seul un représentant par groupe en porte un), on retombe
+    # sur le badge le plus proche comme filet de sécurité. Tout en pouces (même repère que `poly`).
+    inside = [t for t, lx, ly in labels_in if _in_poly(lx, ly, poly)]
+    if inside: return inside
+    cx = sum(p[0] for p in poly) / len(poly)
+    cy = sum(p[1] for p in poly) / len(poly)
+    nl = nearest_letter(cx, cy, labels_in)
+    return [nl] if nl else []
 
 def extract(pdf_path):
     out = []
@@ -39,15 +65,15 @@ def extract(pdf_path):
         head = ' | '.join(lines[:14])
         labels = [(w['text'], (w['x0'] + w['x1']) / 2, (w['top'] + w['bottom']) / 2)
                   for w in p.extract_words() if w['text'] in LETTERS]
+        labels_in = [(txt, (lx - bx) / s, (ly - by) / s) for txt, lx, ly in labels]
         shapes = []
         for o in p.curves + p.rects:
             if not grey(o): continue
             pts = o.get('pts') or []
             poly = [[round((x - bx) / s, 2), round((y - by) / s, 2)] for x, y in pts]
-            cx, cy = o['x0'] + o['width'] / 2, o['top'] + o['height'] / 2
             shapes.append({'bbox': [round((o['x0'] - bx) / s, 2), round((o['top'] - by) / s, 2),
                                     round(o['width'] / s, 2), round(o['height'] / s, 2)], 'poly': poly,
-                           'letter': nearest_letter(cx, cy, labels)})
+                           'letters': letters_for(poly, labels_in)})
         out.append({'page': n, 'layout': m.group(1), 'head': head, 'scale_pt_per_in': round(s, 3), 'footprints': shapes})
     return out
 

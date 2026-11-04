@@ -317,11 +317,11 @@ def _official(terrain: list, cache: dict) -> None:
             cx, cz = sum(p[0] for p in poly) / len(poly), sum(p[1] for p in poly) / len(poly)
             official.append([cx, cz, 0, f["bbox"][3], f["bbox"][2], 1, 1, poly])
         terrain[:] = [t for t in terrain if not (len(t) > 6 and t[6])] + official
-        letters = [f.get("letter") for f in fit["l"]["footprints"]]
+        letters = [f.get("letters") or [] for f in fit["l"]["footprints"]]
         cache["_fit"]["letters"] = letters
         by_letter: dict[str, list] = {}
-        for o, l in zip(official, letters):
-            if l:
+        for o, ls in zip(official, letters):
+            for l in ls:
                 by_letter.setdefault(l, []).append(o[7])
         cents = [(sum(p[0] for p in o[7]) / len(o[7]), sum(p[1] for p in o[7]) / len(o[7]), o[7]) for o in official]
         for t in terrain:
