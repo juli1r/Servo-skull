@@ -426,7 +426,7 @@ class Controller:
 
     # -------------------------------------------------------------- capture
     def capture(self, kind="manual", intent="", note="", turn_key=None, silent=False, photo=None,
-                manual_score=None, ended_phase=None, light=False, drops=None, reuse=False) -> dict | None:
+                ended_phase=None, light=False, drops=None, reuse=False) -> dict | None:
         if not self.session:
             return None
         if turn_key is None and self.tracker and self.tracker.cur_key:
@@ -473,8 +473,7 @@ class Controller:
                     if self.ui:
                         self.ui.show()
             meta = self.session.add_capture(snap, kind, intent, note, shot,
-                                            manual_score=manual_score, turn_key=turn_key, ended_phase=ended_phase,
-                                            drops=drops)
+                                            turn_key=turn_key, ended_phase=ended_phase, drops=drops)
             key = tuple(meta["turnKey"]) if meta.get("turnKey") else None
             if kind in ("manual", "catchup") and self.tracker:
                 self.tracker.mark_captured(key)

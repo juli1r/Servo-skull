@@ -436,9 +436,8 @@ class Session:
 
     # -- capture
     def add_capture(self, snap: dict | None, kind: str, intent: str = "", note: str = "",
-                    screenshot: Path | None = None, manual_score: dict | None = None,
-                    turn_key=None, label: str | None = None, ended_phase: str | None = None,
-                    drops: list | None = None) -> dict:
+                    screenshot: Path | None = None, turn_key=None, label: str | None = None,
+                    ended_phase: str | None = None, drops: list | None = None) -> dict:
         idx = len(self.game["captures"]) + 1
         cid = f"{idx:04d}"
         meta = {"id": cid, "kind": kind, "time": datetime.now().isoformat(timespec="seconds"),
@@ -476,10 +475,6 @@ class Session:
         else:
             key = turn_key
             meta["turnKey"] = list(key) if key else None
-            if manual_score:
-                meta["vp"] = manual_score.get("vp")
-                meta["round"] = manual_score.get("round")
-                meta["turn"] = manual_score.get("turn")
         if screenshot and Path(screenshot).exists():
             dest = self.dir / "captures" / f"{cid}{Path(screenshot).suffix}"
             shutil.move(str(screenshot), str(dest))

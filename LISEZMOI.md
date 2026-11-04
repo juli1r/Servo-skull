@@ -43,7 +43,7 @@ Bouton **Restaurer…**, puis choisis la partie et la capture. Les figurines son
 
 ## Mode invité (quand tu n'héberges pas)
 
-TTS n'exécute les scripts que chez l'hôte. Le programme le détecte et bascule en mode invité : capture d'écran, intention, note, et round/score saisis à la main. Pas de positions, pas de détection de tour, pas de restauration.
+TTS n'exécute les scripts que chez l'hôte. Le programme le détecte et bascule en mode invité : capture d'écran et note seulement. Pas de positions, pas de round/score, pas de détection de tour, pas de restauration.
 
 ## Réglages (`config.json`, à côté de l'exe)
 

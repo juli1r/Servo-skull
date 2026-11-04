@@ -500,21 +500,13 @@ class Overlay:
         self._label(f, "Note (facultatif)", bg=PANEL).pack(fill="x", pady=(10, 3))
         box, self.e_note = self._field(f, multiline=True)
         box.pack(fill="x")
-        self.guest = None
         if mode == "guest":
             g = tk.Frame(f, bg=PANEL)
             g.pack(fill="x", pady=(6, 0))
             tk.Label(g, text="TTS ne répond pas : pas de lecture de la table.", fg=AMBER, bg=PANEL, font=FONT,
-                     justify="left").grid(row=0, column=0, columnspan=6, sticky="w")
-            self.guest = {}
-            for col, (k, lab, w) in enumerate((("round", "Round", 3), ("me", "Moi", 4), ("opp", "Adv.", 4))):
-                tk.Label(g, text=lab.upper(), fg=FAINT, bg=PANEL, font=FONT_MONO).grid(row=1, column=col * 2, sticky="w", padx=(0, 4), pady=(6, 0))
-                e = tk.Entry(g, bg=RAISED, fg=INK, insertbackground=CYAN, relief="flat", font=FONT, width=w,
-                             highlightthickness=1, highlightbackground=BORDER, highlightcolor=CYAN)
-                e.grid(row=1, column=col * 2 + 1, sticky="w", padx=(0, 10))
-                self.guest[k] = e
+                     justify="left").pack(anchor="w")
             gb = tk.Frame(g, bg=PANEL)
-            gb.grid(row=2, column=0, columnspan=6, sticky="w", pady=(6, 0))
+            gb.pack(anchor="w", pady=(6, 0))
             self._btn(gb, "Reconnecter", self._retry).pack(side="left")
             self._btn(gb, "Diagnostic", self._diagnose).pack(side="left", padx=6)
         hk = self.cfg.get("hotkey", "f8").upper()
@@ -577,19 +569,6 @@ class Overlay:
             self.e_note.delete("1.0", "end")
         return note
 
-    def _guest_score(self):
-        if not self.guest:
-            return None
-        me = self.ctl.session.my_color
-        opp = "Blue" if me == "Red" else "Red"
-
-        def num(e):
-            try:
-                return int(e.get())
-            except ValueError:
-                return None
-        return {"round": num(self.guest["round"]), "vp": {me: num(self.guest["me"]), opp: num(self.guest["opp"])}}
-
     def _run(self, fn, *a, **kw):
         if self.busy:
             return
@@ -609,7 +588,7 @@ class Overlay:
         if not getattr(self.ctl, "session", None) or not hasattr(self, "b_cap") or not self.b_cap.winfo_exists():
             return
         note = self._texts()
-        self._run(self.ctl.capture, "manual", "", note, manual_score=self._guest_score())
+        self._run(self.ctl.capture, "manual", "", note)
 
     def _catch_up(self):
         note = self._texts()
