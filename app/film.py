@@ -273,11 +273,14 @@ def overlap(foot: list, fit: dict) -> list:
 
 def _official(terrain: list, cache: dict) -> None:
     """Vérifie si la table correspond à un layout officiel (Event Companion) et note l'écart dans
-    cache["_fit"] (utilisé pour l'alerte de conformité). Quand l'identification est fiable
-    (fit["ok"]), les socles de zone ("foot") sont redessinés avec le contour officiel réel du PDF
-    (t[7] devient la liste de points du polygone, pas un rectangle approximé — les empreintes ne
-    sont PAS des rectangles, même tournés, mais des silhouettes détaillées de 20 à 70 points) ;
-    les décors nommés gardent leur géométrie TTS mesurée."""
+    cache["_fit"] (utilisé pour l'alerte de conformité). Les 16 empreintes d'un layout identifié
+    sont fixes (même kit physique quelle que soit la table) : quand l'identification est fiable
+    (fit["ok"]), on ne cherche PAS à apparier chaque pièce TTS mesurée à l'empreinte officielle la
+    plus proche (ça peut associer la mauvaise forme) — on remplace directement le jeu de socles
+    ("foot") par les 16 empreintes officielles du layout, telles quelles, contour réel du PDF
+    (t[7] = liste de points, pas un rectangle). Les décors nommés gardent leur géométrie TTS
+    mesurée ; les pièces TTS brutes ne servent plus qu'à l'identification (fit_layout/overlap
+    ci-dessus), jamais au tracé une fois le layout confirmé."""
     memo = cache.setdefault("_fitmemo", {})
     key = tuple((round(t[0], 1), round(t[1], 1)) for t in terrain if len(t) > 6 and t[6])
     if key not in memo:
@@ -295,20 +298,13 @@ def _official(terrain: list, cache: dict) -> None:
     cache["_fit"] = ({k: fit[k] for k in ("page", "layout", "n", "of", "mean", "max", "overlap", "known", "far")} | {"name": _fit_name(fit["head"])}) if fit else None
     if fit:
         cache["_fit"]["zones"] = {k: [list(_pdf_world(u, v, fit["sg"])) for u, v in pts] for k, pts in (fit["l"].get("zones") or {}).items()}
-        cs = [(_pdf_world(f["bbox"][0] + f["bbox"][2] / 2, f["bbox"][1] + f["bbox"][3] / 2, fit["sg"]), f) for f in fit["l"]["footprints"]]
-        letters = []
-        for t in terrain:
-            if len(t) > 6 and t[6]:
-                (cx, cz), f = min(cs, key=lambda cf: math.hypot(t[0] - cf[0][0], t[1] - cf[0][1]))
-                poly = [list(_pdf_world(px, py, fit["sg"])) for px, py in f["poly"]]
-                t[0], t[1], t[2] = sum(p[0] for p in poly) / len(poly), sum(p[1] for p in poly) / len(poly), 0
-                t[3], t[4] = f["bbox"][3], f["bbox"][2]
-                if len(t) > 7:
-                    t[7] = poly
-                else:
-                    t.append(poly)
-                letters.append(f.get("letter"))
-        cache["_fit"]["letters"] = letters
+        official = []
+        for f in fit["l"]["footprints"]:
+            poly = [list(_pdf_world(px, py, fit["sg"])) for px, py in f["poly"]]
+            cx, cz = sum(p[0] for p in poly) / len(poly), sum(p[1] for p in poly) / len(poly)
+            official.append([cx, cz, 0, f["bbox"][3], f["bbox"][2], 1, 1, poly])
+        terrain[:] = [t for t in terrain if not (len(t) > 6 and t[6])] + official
+        cache["_fit"]["letters"] = [f.get("letter") for f in fit["l"]["footprints"]]
 
 
 def _in_poly(x: float, z: float, poly: list) -> bool:
