@@ -48,7 +48,7 @@ header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:22px;
 .half .n{font:800 26px/1.1 var(--cond);margin:4px 0;font-variant-numeric:tabular-nums}
 .half .mi{margin-top:3px;font-size:12px;line-height:1.6}
 .half .mi .lab{display:block;margin:3px 0 0}
-.mid{display:flex;align-items:center;justify-content:center;padding:0 8px;background:var(--bg1);font:700 10px var(--mono);color:var(--t3);letter-spacing:.08em}
+.vsmid{display:flex;align-items:center;justify-content:center;padding:0 8px;background:var(--bg1);font:700 10px var(--mono);color:var(--t3);letter-spacing:.08em}
 .ctx{grid-column:1/-1;background:var(--bg1);border-top:1px solid var(--border);padding:6px 12px;display:flex;flex-wrap:wrap;gap:3px 16px;justify-content:space-between;font-size:12px;color:var(--t2)}
 .ctx b{color:var(--t1);font-weight:600}
 .kchip:hover{background:var(--bg2)}.kchip .kt{font-size:12px;color:var(--t3);margin-left:auto}.kchip.loss{border-left-color:var(--red,#f87171)}.kchip.vp{border-left-color:var(--green)}.kchip.mv{border-left-color:var(--cyan)}.kchip.clk{border-left-color:#a78bfa}
@@ -481,7 +481,7 @@ function deployHtml(c){let h=`<h2 class="ptitle">Déploiement</h2>`;
   const layoutConfirmed=D.layoutFit&&!D.layoutFit.rejected;
   if(dep.map)h+=`<div class="psub">${IMG[(MI.deployment||[])[0]]?`<span class="cref" tabindex="0" data-card="${esc((MI.deployment||[])[0])}">${esc(dep.map)}</span>`:esc(dep.map)}${layoutConfirmed?` · ${esc((D.layoutFit.name||"")+" · layout "+D.layoutFit.layout)}`:dep.layout?` · ${esc(layoutName(dep.layout))}`:""}</div>`;
   const half=sd=>`<div class="half ${sd==="Red"?"red":"blue"}"><h3 class="${sd==="Red"?"r":"b"}">${esc(name(sd))} <span class="faint">${sd===me?"· moi":"· adversaire"}</span></h3><div class="n ${sd==="Red"?"r":"b"}">${c&&c.units?sq[sd].size:"–"} <span class="faint" style="font-size:12px;font-weight:400">unités</span></div>${missionHalf(sd,sameDi,samePr)}</div>`;
-  h+=`<div class="vsgrid">${half(me)}<div class="mid">VS</div>${half(OTHER[me])}`
+  h+=`<div class="vsgrid">${half(me)}<div class="vsmid">VS</div>${half(OTHER[me])}`
     +(sameDi||layoutConfirmed||dep.layout?`<div class="ctx">${sameDi?`<span><b>Force de disposition</b> ${esc(MI.redDisposition)}</span>`:""}${layoutConfirmed?`<span title="${D.layoutFit.n}/${D.layoutFit.of} décors retrouvés dans le PDF, écart moyen ${String(D.layoutFit.mean).replace(".",",")}″"><b>Plan de table</b> layout ${esc(D.layoutFit.layout)} <span class="faint">(PDF p.${D.layoutFit.page})</span></span>`:dep.layout?`<span><b>Plan de table</b> ${esc(layoutName(dep.layout))}</span>`:""}</div>`:"")
     +(samePr?`<div class="ctx"><span><b>Primaire</b> ${MI.redPrimary.map(cardRef).join(" · ")}</span></div>`:"")
     +(D.layoutFit&&D.layoutFit.rejected?`<div class="ctx"><span style="color:var(--amber)">Layout non confirmé : la table ressemble au layout ${esc(D.layoutFit.layout)} (PDF p.${D.layoutFit.page}) mais ne le recouvre qu'à ${Math.round(D.layoutFit.overlap*100)} % — formes TTS affichées telles quelles</span></div>`:!D.layoutFit&&C.some(c=>c.terrain&&c.terrain.length)?`<div class="ctx"><span style="color:var(--amber)">Table non reconnue parmi les 45 du PDF</span></div>`:"")
