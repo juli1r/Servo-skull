@@ -4,9 +4,10 @@ from __future__ import annotations
 import json
 import math
 import re
+from collections import Counter
 from pathlib import Path
 
-from core import Session, parse_unit_name, strip_tags
+from core import OTHER, Session, parse_unit_name, strip_tags
 
 OBJECTIVE = re.compile(r"objecti", re.I)
 NOT_OBJECTIVE = re.compile(r"button|show|card|secondary|secondaire", re.I)
@@ -719,9 +720,57 @@ def split_squads(caps: list, board: dict, units_dir: Path | None = None) -> int:
     return added
 
 
-def _doubt_names(g: dict, caps: list, names: dict) -> list:
+def _refine_sides_by_zone(sides: dict, doubt_guids, caps: list, zones: dict | None) -> tuple[dict, list]:
+    """Recale le camp de chaque unité sur la vraie zone de déploiement officielle du layout
+    identifié (cache["_fit"]["zones"], clés "atk"/"def", contours reprojetés sur la table),
+    plutôt que sur le seul signe de z utilisé en direct par core.infer_sides — faux pour les
+    layouts dont les zones ne sont pas de simples bandes nord/sud (ex. Tipping Point). Ne change
+    rien si le layout n'est pas identifié avec confiance (zones absentes/trop courtes).
+    Position de référence par unité : sa toute première position capturée (au plus près du
+    déploiement). On détermine d'abord quel camp correspond à quelle zone par vote majoritaire
+    (sur le camp déjà connu des unités dont la position tombe dedans, au moins 3 votes pour faire
+    confiance à une zone ; l'autre zone est déduite par complément s'il n'y en a qu'une de sûre),
+    puis on reclasse TOUTES les unités dont la position tombe sans ambiguïté dans une seule des
+    deux zones — pas seulement celles déjà signalées douteuses, certaines étant mal classées avec
+    une fausse confiance par l'heuristique en direct. Les unités hors des deux zones (réserves
+    jamais captées au déploiement, etc.) gardent leur attribution actuelle."""
+    sides = dict(sides)
+    doubt_guids = set(doubt_guids)
+    if not zones or len(zones.get("atk") or []) < 3 or len(zones.get("def") or []) < 3:
+        return sides, sorted(doubt_guids)
+    first_pos: dict[str, tuple[float, float]] = {}
+    for c in caps:
+        for u in c.get("units") or []:
+            first_pos.setdefault(u[0], (u[4], u[5]))
+    votes = {"atk": Counter(), "def": Counter()}
+    for guid, side in sides.items():
+        pos = first_pos.get(guid)
+        if not pos:
+            continue
+        x, z = pos
+        for key, poly in zones.items():
+            if _pt_in(x, z, poly):
+                votes[key][side] += 1
+    zone_side = {k: c.most_common(1)[0][0] for k, c in votes.items() if sum(c.values()) >= 3}
+    if "atk" in zone_side and "def" not in zone_side:
+        zone_side["def"] = OTHER[zone_side["atk"]]
+    elif "def" in zone_side and "atk" not in zone_side:
+        zone_side["atk"] = OTHER[zone_side["def"]]
+    if not zone_side:
+        return sides, sorted(doubt_guids)
+    resolved = set()
+    for guid, pos in first_pos.items():
+        x, z = pos
+        hit = [k for k, poly in zones.items() if _pt_in(x, z, poly)]
+        if len(hit) == 1 and hit[0] in zone_side:
+            sides[guid] = zone_side[hit[0]]
+            resolved.add(guid)
+    return sides, sorted(doubt_guids - resolved)
+
+
+def _doubt_names(doubt_guids, caps: list, names: dict) -> list:
     """Noms des escouades dont le camp est incertain (à vérifier dans le film)."""
-    doubt = set(g.get("sidesDoubt") or [])
+    doubt = set(doubt_guids)
     if not doubt:
         return []
     out = []
@@ -788,11 +837,13 @@ def collect(session: Session) -> dict:
     for k in sorted(k for k in names if "#" in k):  # « Slaughterbound », « Slaughterbound (2) »
         if k.split("#")[0] in names and names[k] == names[k.split("#")[0]]:
             names[k] = f"{names[k]} ({k.split('#')[1]})"
+    sides, doubt_guids = _refine_sides_by_zone(g.get("sides") or {}, g.get("sidesDoubt") or [],
+                                                caps, (cache.get("_fit") or {}).get("zones"))
     data = {"ttsSaves": [{k: m.get(k) for k in ("file", "label", "time", "round", "turn")}
                          for m in g.get("ttsSaves") or []],
             "squadNames": names, "myColor": g["myColor"], "players": g.get("players", {}), "board": board,
-            "sides": g.get("sides", {}), "created": g.get("created"), "mode": g.get("mode"),
-            "sidesDoubt": _doubt_names(g, caps, names),
+            "sides": sides, "created": g.get("created"), "mode": g.get("mode"),
+            "sidesDoubt": _doubt_names(doubt_guids, caps, names),
             "redPositiveZ": g.get("redPositiveZ", True), "captures": caps, "mission": mission_of(session, caps), "primaries": _primaries(), "layoutFit": cache.get("_fit"), "folder": session.dir.name}
     return data
 
