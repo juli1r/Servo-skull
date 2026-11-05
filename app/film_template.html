@@ -40,6 +40,17 @@ header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:22px;
 /* liseré coloré : même famille visuelle que .turn/.kchip (v2, plus bas), pour rattacher un bloc du panneau à un camp/contexte sans casser l'esthétique plate */
 .strip{border-left:3px solid var(--t3);border-radius:0 6px 6px 0;padding:6px 10px;margin:6px 0}
 .strip-r{border-left-color:var(--red)}.strip-b{border-left-color:var(--blue)}.strip-coral{border-left-color:var(--coral)}
+/* face-à-face des deux camps : résumé de déploiement (voir deployHtml) */
+.vsgrid{display:grid;grid-template-columns:1fr auto 1fr;margin:10px 0;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.half{padding:10px 12px;background:rgba(55,138,221,.08);min-width:0}
+.half.red{background:rgba(248,113,113,.08);text-align:right}
+.half h3{margin:0;font:700 16px var(--cond);letter-spacing:.02em}
+.half .n{font:800 26px/1.1 var(--cond);margin:4px 0;font-variant-numeric:tabular-nums}
+.half .mi{margin-top:3px;font-size:12px;line-height:1.6}
+.half .mi .lab{display:block;margin:3px 0 0}
+.mid{display:flex;align-items:center;justify-content:center;padding:0 8px;background:var(--bg1);font:700 10px var(--mono);color:var(--t3);letter-spacing:.08em}
+.ctx{grid-column:1/-1;background:var(--bg1);border-top:1px solid var(--border);padding:6px 12px;display:flex;flex-wrap:wrap;gap:3px 16px;justify-content:space-between;font-size:12px;color:var(--t2)}
+.ctx b{color:var(--t1);font-weight:600}
 .kchip:hover{background:var(--bg2)}.kchip .kt{font-size:12px;color:var(--t3);margin-left:auto}.kchip.loss{border-left-color:var(--red,#f87171)}.kchip.vp{border-left-color:var(--green)}.kchip.mv{border-left-color:var(--cyan)}.kchip.clk{border-left-color:#a78bfa}
 #bTTS.off{opacity:.55}
 .clock{font:500 12px "IBM Plex Mono",monospace;color:var(--t3);margin-left:auto}.summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:18px}
@@ -364,13 +375,11 @@ const PRI_SUM={};for(const [k,v] of Object.entries(D.primaries||{}))PRI_SUM[k]=v
 const cardRef=n=>(IMG[n]||PRI_SUM[n])?`<span class="cref" tabindex="0" data-card="${esc(n)}">${esc(n)}</span>`:esc(n);
 const DISP={TnH:"Take and Hold",PtF:"Purge the Foe",PA:"Priority Assets",Dis:"Disruption",D:"Disruption",Rec:"Reconnaissance",R:"Reconnaissance"};
 function layoutName(l){const m=l.match(/^(\w+) vs (\w+) (\d+)$/);return m?`Layout ${m[3]} · ${DISP[m[1]]||m[1]} vs ${DISP[m[2]]||m[2]}`:l}
-function missionHtml(s,hideDi,hidePr){const pr=MI[lc(s)+"Primary"]||[],seen=MI[lc(s)+"SecondarySeen"]||MI[lc(s)+"Secondary"]||[],mo=MI[lc(s)+"SecMode"];
-  const di=MI[lc(s)+"Disposition"];
-  if(!(!hidePr&&pr.length)&&!seen.length&&!(!hideDi&&di))return "";
-  let h=`<div class="mis strip ${s==="Red"?"strip-r":"strip-b"}">`;
-  if(!hideDi&&di)h+=`<div><span class="lab">Force de disposition</span><b>${esc(di)}</b></div>`;
-  if(!hidePr&&pr.length)h+=`<div><span class="lab">Primaire</span><b>${pr.map(cardRef).join(" · ")}</b></div>`;
-  if(seen.length||mo)h+=`<details class="secs"><summary><span class="lab">Secondaires</span><b>${seen.length} jouée${seen.length>1?"s":""}</b>${mo?`<span class="faint" style="font-size:12px">${esc(/tactical/i.test(mo)?"tactiques":"fixes")}</span>`:""}</summary>${seen.length?`<ul>${seen.map(n=>`<li>${cardRef(n)}</li>`).join("")}</ul>`:'<span class="faint">aucune vue</span>'}</details>`;
+function missionHalf(s,hideDi,hidePr){const pr=MI[lc(s)+"Primary"]||[],seen=MI[lc(s)+"SecondarySeen"]||MI[lc(s)+"Secondary"]||[];
+  const di=MI[lc(s)+"Disposition"];let h=`<div class="mi">`;
+  if(!hideDi&&di)h+=`<span class="lab">Force de disposition</span>${esc(di)}`;
+  if(!hidePr&&pr.length)h+=`<span class="lab">Primaire</span>${pr.map(cardRef).join(" · ")}`;
+  if(seen.length)h+=`<span class="lab">Secondaires</span>${seen.length} jouée${seen.length>1?"s":""}`;
   return h+`</div>`}
 
 
@@ -465,14 +474,19 @@ function secHtml(t,lastk,s){const cd=C[lastk].cards||{};const tm=((MI.turns||{})
     (sec&&sec.length?`<div>En jeu : ${sec.map(cardRef).join(" · ")}</div>`:"")+(dn&&dn.length?`<div class="mute">Retirées ce tour : ${dn.map(cardRef).join(" · ")}</div>`:"")+
     (s===me&&cd.myHand&&cd.myHand.length?`<div class="mute">En main : ${cd.myHand.map(esc).join(", ")}</div>`:"")+`</details></div>`}
 function deployHtml(c){let h=`<h2 class="ptitle">Déploiement</h2>`;
-  if(c&&c.units){const sq={Red:new Set(),Blue:new Set()};for(const u of c.units)if(alive(u)&&onBoard(u))sq[sideOf(u[0])].add(u[9]);
-    h+=`<div class="psub">Position des deux armées au début de la partie</div>`+[me,OTHER[me]].map(sd=>`<div class="fr dense strip ${sd==="Red"?"strip-r":"strip-b"}"><b class="${sd==="Red"?"r":"b"}">${sq[sd].size}</b><span>unités ${sd===me?"à moi":"adverses · "+esc(name(sd))}</span></div>`).join("")}
+  const sq={Red:new Set(),Blue:new Set()};if(c&&c.units)for(const u of c.units)if(alive(u)&&onBoard(u))sq[sideOf(u[0])].add(u[9]);
   const eqArr=(a,b)=>!!a&&!!b&&a.length===b.length&&a.every((v,idx)=>v===b[idx]);
   const sameDi=MI.redDisposition&&MI.redDisposition===MI.blueDisposition;
   const samePr=eqArr(MI.redPrimary,MI.bluePrimary);
   const layoutConfirmed=D.layoutFit&&!D.layoutFit.rejected;
-  h+=`${dep.map?`<div class="psub" style="margin-top:14px">Contexte de la partie</div><div class="mis strip strip-coral"><div><span class="lab">Carte de déploiement</span><b>${IMG[(MI.deployment||[])[0]]?`<span class="cref" tabindex="0" data-card="${esc((MI.deployment||[])[0])}">${esc(dep.map)}</span>`:esc(dep.map)}</b></div>${layoutConfirmed?`<div title="${D.layoutFit.n}/${D.layoutFit.of} décors retrouvés dans le PDF, écart moyen ${String(D.layoutFit.mean).replace(".",",")}″"><span class="lab">Plan de table</span>${esc((D.layoutFit.name||"")+" · layout "+D.layoutFit.layout)} <span class="faint">(PDF p.${D.layoutFit.page})</span></div>`:dep.layout?`<div><span class="lab">Plan de table</span>${esc(layoutName(dep.layout))}</div>`:""}${D.layoutFit&&D.layoutFit.rejected?`<div><span class="lab">Layout officiel</span><span style="color:var(--amber)">non confirmé : la table ressemble au layout ${esc(D.layoutFit.layout)} (PDF p.${D.layoutFit.page}) mais ne le recouvre qu'à ${Math.round(D.layoutFit.overlap*100)} % — formes TTS affichées telles quelles</span></div>`:!D.layoutFit&&C.some(c=>c.terrain&&c.terrain.length)?`<div><span class="lab">Layout officiel</span><span style="color:var(--amber)">table non reconnue parmi les 45 du PDF</span></div>`:""}${sameDi?`<div><span class="lab">Force de disposition</span><b>${esc(MI.redDisposition)}</b></div>`:""}${samePr?`<div><span class="lab">Primaire</span><b>${MI.redPrimary.map(cardRef).join(" · ")}</b></div>`:""}${(MI.twist||[]).length?`<div><span class="lab">Twist</span>${MI.twist.map(esc).join(" · ")}</div>`:""}</div>`:""}`;
-  h+=`<div class="psub" style="margin-top:14px">Forces en présence</div><section class="pre">`+[me,OTHER[me]].map(sd=>`<div><h3 class="${sd==="Red"?"r":"b"}">${esc(name(sd))} <span class="faint">${sd===me?"· moi":"· adversaire"}</span></h3>${missionHtml(sd,sameDi,samePr)||'<div class="empty">Missions non renseignées</div>'}</div>`).join("")+`</section>`;
+  if(dep.map)h+=`<div class="psub">${IMG[(MI.deployment||[])[0]]?`<span class="cref" tabindex="0" data-card="${esc((MI.deployment||[])[0])}">${esc(dep.map)}</span>`:esc(dep.map)}${layoutConfirmed?` · ${esc((D.layoutFit.name||"")+" · layout "+D.layoutFit.layout)}`:dep.layout?` · ${esc(layoutName(dep.layout))}`:""}</div>`;
+  const half=sd=>`<div class="half ${sd==="Red"?"red":"blue"}"><h3 class="${sd==="Red"?"r":"b"}">${esc(name(sd))} <span class="faint">${sd===me?"· moi":"· adversaire"}</span></h3><div class="n ${sd==="Red"?"r":"b"}">${c&&c.units?sq[sd].size:"–"} <span class="faint" style="font-size:12px;font-weight:400">unités</span></div>${missionHalf(sd,sameDi,samePr)}</div>`;
+  h+=`<div class="vsgrid">${half(me)}<div class="mid">VS</div>${half(OTHER[me])}`
+    +(sameDi||layoutConfirmed||dep.layout?`<div class="ctx">${sameDi?`<span><b>Force de disposition</b> ${esc(MI.redDisposition)}</span>`:""}${layoutConfirmed?`<span title="${D.layoutFit.n}/${D.layoutFit.of} décors retrouvés dans le PDF, écart moyen ${String(D.layoutFit.mean).replace(".",",")}″"><b>Plan de table</b> layout ${esc(D.layoutFit.layout)} <span class="faint">(PDF p.${D.layoutFit.page})</span></span>`:dep.layout?`<span><b>Plan de table</b> ${esc(layoutName(dep.layout))}</span>`:""}</div>`:"")
+    +(samePr?`<div class="ctx"><span><b>Primaire</b> ${MI.redPrimary.map(cardRef).join(" · ")}</span></div>`:"")
+    +(D.layoutFit&&D.layoutFit.rejected?`<div class="ctx"><span style="color:var(--amber)">Layout non confirmé : la table ressemble au layout ${esc(D.layoutFit.layout)} (PDF p.${D.layoutFit.page}) mais ne le recouvre qu'à ${Math.round(D.layoutFit.overlap*100)} % — formes TTS affichées telles quelles</span></div>`:!D.layoutFit&&C.some(c=>c.terrain&&c.terrain.length)?`<div class="ctx"><span style="color:var(--amber)">Table non reconnue parmi les 45 du PDF</span></div>`:"")
+    +((MI.twist||[]).length?`<div class="ctx"><span><b>Twist</b> ${MI.twist.map(esc).join(" · ")}</span></div>`:"")
+    +`</div>`;
   const t=TURNS[turnOf(i)];if(t)h+=notesHtml(t,null);return h}
 function turnHtml(tn,t,c){const s=t.turn,o=OTHER[s||"Red"],cl=s==="Red"?"r":"b";let h="";
   const R=RNDS.find(r=>r.turns.includes(tn));
