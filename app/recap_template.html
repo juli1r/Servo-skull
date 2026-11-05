@@ -288,7 +288,7 @@ details.more>summary,details.pdet>summary,details.secs summary{min-height:36px;d
 <a class="skip" href="#main">Aller au plan</a>
 <header>
   <div class="brand">SERVO-SKULL</div>
-  <nav class="topnav" id="topnav" role="tablist" aria-label="Navigation"><button role="tab" data-view="home">Accueil</button><button role="tab" data-view="list">Liste</button><button role="tab" data-view="game">Jeu</button></nav>
+  <nav class="topnav" id="topnav" role="tablist" aria-label="Navigation"><button role="tab" data-view="home">Accueil</button><button role="tab" data-view="game">Jeu</button></nav>
   <div class="final" id="final"></div>
   <div class="meta" id="meta"></div>
   <div class="grow"></div>
@@ -447,11 +447,10 @@ function keyHtml(){const k=KM||(KM=keyMoments());if(!k.length)return "";
 function vpAt(k,s){const v=(C[k]&&C[k].vp)||{};return v[s]}
 // ---------- onglets de rounds + panneau de droite ----------
 let PV="phase";
-// ---------- navigation Accueil/Liste/Jeu ----------
+// ---------- navigation Accueil/Jeu ----------
 let VIEW="home";
 function syncTopNav(){const nav=$("topnav");if(!nav)return;
-  nav.querySelectorAll("button").forEach(b=>{const v=b.dataset.view;
-    const on=v==="home"?VIEW==="home":v==="list"?(VIEW==="game"&&PV==="units"):(VIEW==="game"&&PV==="phase");
+  nav.querySelectorAll("button").forEach(b=>{const on=b.dataset.view===VIEW;
     b.classList.toggle("on",on);b.setAttribute("aria-selected",on)})}
 function applyViewDisplay(){const gameOn=VIEW==="game";
   $("home").style.display=gameOn?"none":"block";$("tabs").style.display=gameOn?"flex":"none";$("work").style.display=gameOn?"grid":"none"}
@@ -592,7 +591,7 @@ function drawZones(svg){const Z=D.layoutFit&&D.layoutFit.zones;if(!Z||!Z.atk)ret
     const g=el("polygon",{points:Z[k].map(v=>proj(v[0],v[1]).join(",")).join(" "),fill:col,"fill-opacity":.07,stroke:col,"stroke-opacity":.45,"stroke-width":.08,"stroke-dasharray":".6 .35","stroke-linejoin":"round"},svg);
     el("title",{},g).textContent="Zone de déploiement "+(k==="atk"?"attaquant":"défenseur")+(s?" — "+name(s):"")+" (Event Companion)"}}
 function drawInto(svg,capIndex,opts){
-  opts=opts||{};const interactive=opts.interactive!==false;const sid=svg.id;
+  opts=opts||{};const interactive=opts.interactive!==false;const units=opts.units!==false;const sid=svg.id;
   const {c,ref,stepDone}=interactive?frameCapture():{c:C[capIndex],ref:null,stepDone:null};
   svg.setAttribute("viewBox",`${-W/2-PAD} ${-H/2-PAD} ${W+2*PAD} ${H+2*PAD}`);svg.innerHTML="";
   const defs=el("defs",{},svg);for(const s of ["Red","Blue"]){const m=el("marker",{id:`ah${sid}${s}`,viewBox:"0 0 10 10",refX:"8",refY:"5",markerWidth:"5",markerHeight:"5",orient:"auto-start-reverse"},defs);el("path",{d:"M0,0 L10,5 L0,10 z",fill:lightOf(s)},m)}
@@ -617,7 +616,7 @@ function drawInto(svg,capIndex,opts){
       for(const poly of t[10])el("polygon",{points:poly.map(v=>proj(v[0],v[1]).join(",")).join(" "),fill:t[5]?"#232c42":"#2a3348","fill-opacity":t[5]?1:.5,stroke:t[6]?"#3d4a66":t[5]?"none":"#4a5578","stroke-width":t[6]?.06:.08,"stroke-linejoin":"round"},parent);
       continue}
     el("rect",{x:-t[3]/2,y:-t[4]/2,width:t[3],height:t[4],fill:t[5]?"#232c42":"#2a3348","fill-opacity":t[5]?1:.5,stroke:t[6]?"#3d4a66":t[5]?"none":"#4a5578","stroke-width":t[6]?.06:.08,"stroke-dasharray":t[5]?"none":".4 .25",rx:t[6]?.05:.12,transform:`translate(${x} ${y}) rotate(${rotDeg(t[2])})`},parent)}
-  for(const o of c.objectives){const [x,y]=proj(o[0],o[1]);const ar=o[3]||null;const pr=presence(o,c.units);const who=pr.Red&&pr.Blue?"both":pr.Red?"Red":pr.Blue?"Blue":null;
+  for(const o of c.objectives){const [x,y]=proj(o[0],o[1]);const ar=o[3]||null;const pr=units?presence(o,c.units):{Red:0,Blue:0};const who=pr.Red&&pr.Blue?"both":pr.Red?"Red":pr.Blue?"Blue":null;
     const col=who==="both"?"#fbbf24":who?colOf(who):"#fbbf24";const g=el("g",{},svg);
     if(ar&&Array.isArray(ar[5])){el("polygon",{points:ar[5].map(v=>proj(v[0],v[1]).join(",")).join(" "),"stroke-linejoin":"round",fill:!who?"none":who!=="both"?(who==="Red"?"rgba(248,113,113,.16)":"rgba(55,138,221,.2)"):"rgba(251,191,36,.07)",stroke:who?col:"#8e95a8","stroke-width":who?.2:.1,opacity:who?1:.45},g)}
     else if(ar){const [ax,ay]=proj(ar[0],ar[1]);el("rect",{x:-ar[3]/2,y:-ar[4]/2,width:ar[3],height:ar[4],rx:.15,fill:!who?"none":who!=="both"?(who==="Red"?"rgba(248,113,113,.16)":"rgba(55,138,221,.2)"):"rgba(251,191,36,.07)",stroke:who?col:"#8e95a8","stroke-width":who?.2:.1,opacity:who?1:.45,transform:`translate(${ax} ${ay}) rotate(${rotDeg(ar[2])})`},g)}
@@ -625,10 +624,11 @@ function drawInto(svg,capIndex,opts){
     el("circle",{cx:x,cy:y,r:.55,fill:"#fbbf24",stroke:"#080b10","stroke-width":.08},g);
     // plus de texte sur la carte : la couleur du contour dit qui est présent ; le détail reste dans l'infobulle ci-dessous
     el("title",{},g).textContent=`${o[2]||"Objectif"} — figurines dans la zone : ${name("Red")} ${pr.Red}, ${name("Blue")} ${pr.Blue} (présence, pas l'OC)`}
+  const gT=el("g",{},svg),gG=el("g",{},svg),gA=el("g",{},svg),gU=el("g",{},svg),gL=el("g",{},svg);
+  if(units){
   const rm={};if(ref&&ref!==C[capIndex])for(const u of ref.units)rm[u[0]]=u;const cm={};for(const u of c.units)cm[u[0]]=u;
   const onTable=k=>k&&c.units.some(u=>u[9]===k&&onBoard(u)&&alive(u));
   const hl=interactive?([hoverSquad,selSquad].find(onTable)||null):null;
-  const gT=el("g",{},svg),gG=el("g",{},svg),gA=el("g",{},svg),gU=el("g",{},svg),gL=el("g",{},svg);
   if(interactive&&selSquad){const paths={};for(let j=0;j<=capIndex;j++){const cc=C[j];if(!cc.units)continue;for(const u of cc.units){if(u[9]!==selSquad||!onBoard(u)||!alive(u))continue;(paths[u[0]]=paths[u[0]]||[]).push(proj(u[4],u[5]))}}
     for(const g in paths){const pts=paths[g];if(pts.length<2)continue;el("polyline",{points:pts.map(p=>p.join(",")).join(" "),fill:"none",stroke:"#38bdf8","stroke-width":.12,opacity:.55,"stroke-dasharray":".5 .25"},gT)}}
   if(ref&&ref!==C[capIndex])for(const u of ref.units){if(!onBoard(u)||!alive(u))continue;if(stepDone&&!stepDone.has(u[9]))continue;const n=cm[u[0]];
@@ -649,7 +649,8 @@ function drawInto(svg,capIndex,opts){
     if(u[3]>1){const fs=Math.max(.45,Math.min(1.15,b*.34));const t=el("text",{x,y:y+fs*.36,"font-size":fs,"text-anchor":"middle",fill:"#080b10","font-weight":"700"},g);t.textContent=`${u[2]}/${u[3]}`}
     el("title",{},g).textContent=`${sqName(u[9])} — ${u[1]} — ${u[2]}/${u[3]} PV (${name(s)})`;
     g.dataset.sq=u[9];if(interactive)g.onclick=()=>{if(!tool)select(u[9])}}
-  if(interactive&&names)drawNames(sq,hl,gL);
+  if(interactive&&names)drawNames(sq,hl,gL)
+  }
   if(interactive)drawTools(svg,c)}
 function draw(){drawInto($("board"),i,{interactive:true})}
 // ---------- noms d'unités : courts, petits, placés sans collision ----------
@@ -934,15 +935,14 @@ render();
 function renderHome(){const home=$("home");if(!home)return;const dc=DEPLOY>=0?C[DEPLOY]:null;
   home.innerHTML=`<div class="hero"><div class="final">${$("final").innerHTML}</div><div class="meta">${esc($("meta").textContent)}</div></div>`
     +vsSummaryHtml(dc)
-    +`<div class="homeboard-wrap"><svg id="homeBoard" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Plan du déploiement"></svg></div>`
+    +`<div class="homeboard-wrap"><svg id="homeBoard" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Plan de la table (layout)"></svg></div>`
     +detailHtml()
-    +`<div class="cta"><button class="go" data-view="game">▶ Revivre la partie</button><button data-view="list">Liste des unités</button></div>`;
+    +`<div class="cta"><button class="go" data-view="game">▶ Revivre la partie</button></div>`;
   const pdet=home.querySelector(".pdet");if(pdet)pdet.open=true;
-  if(dc)drawInto($("homeBoard"),DEPLOY,{interactive:false});
-  home.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click",()=>{PV=b.dataset.view==="list"?"units":"phase";setView("game")}))}
+  if(dc)drawInto($("homeBoard"),DEPLOY,{interactive:false,units:false});
+  home.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)))}
 renderHome();
-$("topnav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
-  if(b.dataset.view==="home")setView("home");else{PV=b.dataset.view==="list"?"units":"phase";setView("game")}});
+$("topnav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;setView(b.dataset.view)});
 applyViewDisplay();syncTopNav();
 (function(){const pop=$("cardpop");let cur=null;
   function show(e){const n=e.dataset.card;if(!n)return;cur=e;pop.querySelector("h4").textContent=n===(MI.deployment||[])[0]?dep.map+(dep.layout?" · "+layoutName(dep.layout):""):n;
