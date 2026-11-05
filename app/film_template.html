@@ -361,12 +361,12 @@ const PRI_SUM={};for(const [k,v] of Object.entries(D.primaries||{}))PRI_SUM[k]=v
 const cardRef=n=>(IMG[n]||PRI_SUM[n])?`<span class="cref" tabindex="0" data-card="${esc(n)}">${esc(n)}</span>`:esc(n);
 const DISP={TnH:"Take and Hold",PtF:"Purge the Foe",PA:"Priority Assets",Dis:"Disruption",D:"Disruption",Rec:"Reconnaissance",R:"Reconnaissance"};
 function layoutName(l){const m=l.match(/^(\w+) vs (\w+) (\d+)$/);return m?`Layout ${m[3]} · ${DISP[m[1]]||m[1]} vs ${DISP[m[2]]||m[2]}`:l}
-function missionHtml(s){const pr=MI[lc(s)+"Primary"]||[],seen=MI[lc(s)+"SecondarySeen"]||MI[lc(s)+"Secondary"]||[],mo=MI[lc(s)+"SecMode"];
+function missionHtml(s,hideDi,hidePr){const pr=MI[lc(s)+"Primary"]||[],seen=MI[lc(s)+"SecondarySeen"]||MI[lc(s)+"Secondary"]||[],mo=MI[lc(s)+"SecMode"];
   const di=MI[lc(s)+"Disposition"];
-  if(!pr.length&&!seen.length&&!di)return "";
+  if(!(!hidePr&&pr.length)&&!seen.length&&!(!hideDi&&di))return "";
   let h=`<div class="mis">`;
-  if(di)h+=`<div><span class="lab">Force de disposition</span><b>${esc(di)}</b></div>`;
-  if(pr.length)h+=`<div><span class="lab">Primaire</span><b>${pr.map(cardRef).join(" · ")}</b></div>`;
+  if(!hideDi&&di)h+=`<div><span class="lab">Force de disposition</span><b>${esc(di)}</b></div>`;
+  if(!hidePr&&pr.length)h+=`<div><span class="lab">Primaire</span><b>${pr.map(cardRef).join(" · ")}</b></div>`;
   if(seen.length||mo)h+=`<details class="secs"><summary><span class="lab">Secondaires</span><b>${seen.length} jouée${seen.length>1?"s":""}</b>${mo?`<span class="faint" style="font-size:12px">${esc(/tactical/i.test(mo)?"tactiques":"fixes")}</span>`:""}</summary>${seen.length?`<ul>${seen.map(n=>`<li>${cardRef(n)}</li>`).join("")}</ul>`:'<span class="faint">aucune vue</span>'}</details>`;
   return h+`</div>`}
 
@@ -463,9 +463,13 @@ function secHtml(t,lastk,s){const cd=C[lastk].cards||{};const tm=((MI.turns||{})
     (s===me&&cd.myHand&&cd.myHand.length?`<div class="mute">En main : ${cd.myHand.map(esc).join(", ")}</div>`:"")+`</details></div>`}
 function deployHtml(c){let h=`<h2 class="ptitle">Déploiement</h2>`;
   if(c&&c.units){const sq={Red:new Set(),Blue:new Set()};for(const u of c.units)if(alive(u)&&onBoard(u))sq[sideOf(u[0])].add(u[9]);
-    h+=`<div class="psub">Position des deux armées au début de la partie</div>`+[me,OTHER[me]].map(sd=>`<div class="fr"><b class="${sd==="Red"?"r":"b"}">${sq[sd].size}</b><span>unités ${sd===me?"à moi":"adverses · "+esc(name(sd))}</span></div>`).join("")}
-  h+=`${dep.map?`<div class="mis" style="margin-top:8px"><div><span class="lab">Carte de déploiement</span><b>${IMG[(MI.deployment||[])[0]]?`<span class="cref" tabindex="0" data-card="${esc((MI.deployment||[])[0])}">${esc(dep.map)}</span>`:esc(dep.map)}</b></div>${dep.layout?`<div><span class="lab">Plan de table</span>${esc(layoutName(dep.layout))}</div>`:""}${D.layoutFit&&D.layoutFit.rejected?`<div><span class="lab">Layout officiel</span><span style="color:var(--amber)">non confirmé : la table ressemble au layout ${esc(D.layoutFit.layout)} (PDF p.${D.layoutFit.page}) mais ne le recouvre qu'à ${Math.round(D.layoutFit.overlap*100)} % — formes TTS affichées telles quelles</span></div>`:D.layoutFit?`<div title="${D.layoutFit.n}/${D.layoutFit.of} décors retrouvés dans le PDF, écart moyen ${String(D.layoutFit.mean).replace(".",",")}″"><span class="lab">Layout officiel</span>${esc((D.layoutFit.name||"")+" · layout "+D.layoutFit.layout)} <span class="faint">(PDF p.${D.layoutFit.page})</span></div>`:(C.some(c=>c.terrain&&c.terrain.length)?`<div><span class="lab">Layout officiel</span><span style="color:var(--amber)">table non reconnue parmi les 45 du PDF</span></div>`:"")}${(MI.twist||[]).length?`<div><span class="lab">Twist</span>${MI.twist.map(esc).join(" · ")}</div>`:""}</div>`:""}`;
-  h+=`<section class="pre">`+[me,OTHER[me]].map(sd=>`<div><h3 class="${sd==="Red"?"r":"b"}">${esc(name(sd))} <span class="faint">${sd===me?"· moi":"· adversaire"}</span></h3>${missionHtml(sd)||'<div class="empty">Missions non renseignées</div>'}</div>`).join("")+`</section>`;
+    h+=`<div class="psub">Position des deux armées au début de la partie</div>`+[me,OTHER[me]].map(sd=>`<div class="fr dense"><b class="${sd==="Red"?"r":"b"}">${sq[sd].size}</b><span>unités ${sd===me?"à moi":"adverses · "+esc(name(sd))}</span></div>`).join("")}
+  const eqArr=(a,b)=>!!a&&!!b&&a.length===b.length&&a.every((v,idx)=>v===b[idx]);
+  const sameDi=MI.redDisposition&&MI.redDisposition===MI.blueDisposition;
+  const samePr=eqArr(MI.redPrimary,MI.bluePrimary);
+  const layoutConfirmed=D.layoutFit&&!D.layoutFit.rejected;
+  h+=`${dep.map?`<div class="psub" style="margin-top:14px">Contexte de la partie</div><div class="mis"><div><span class="lab">Carte de déploiement</span><b>${IMG[(MI.deployment||[])[0]]?`<span class="cref" tabindex="0" data-card="${esc((MI.deployment||[])[0])}">${esc(dep.map)}</span>`:esc(dep.map)}</b></div>${layoutConfirmed?`<div title="${D.layoutFit.n}/${D.layoutFit.of} décors retrouvés dans le PDF, écart moyen ${String(D.layoutFit.mean).replace(".",",")}″"><span class="lab">Plan de table</span>${esc((D.layoutFit.name||"")+" · layout "+D.layoutFit.layout)} <span class="faint">(PDF p.${D.layoutFit.page})</span></div>`:dep.layout?`<div><span class="lab">Plan de table</span>${esc(layoutName(dep.layout))}</div>`:""}${D.layoutFit&&D.layoutFit.rejected?`<div><span class="lab">Layout officiel</span><span style="color:var(--amber)">non confirmé : la table ressemble au layout ${esc(D.layoutFit.layout)} (PDF p.${D.layoutFit.page}) mais ne le recouvre qu'à ${Math.round(D.layoutFit.overlap*100)} % — formes TTS affichées telles quelles</span></div>`:!D.layoutFit&&C.some(c=>c.terrain&&c.terrain.length)?`<div><span class="lab">Layout officiel</span><span style="color:var(--amber)">table non reconnue parmi les 45 du PDF</span></div>`:""}${sameDi?`<div><span class="lab">Force de disposition</span><b>${esc(MI.redDisposition)}</b></div>`:""}${samePr?`<div><span class="lab">Primaire</span><b>${MI.redPrimary.map(cardRef).join(" · ")}</b></div>`:""}${(MI.twist||[]).length?`<div><span class="lab">Twist</span>${MI.twist.map(esc).join(" · ")}</div>`:""}</div>`:""}`;
+  h+=`<div class="psub" style="margin-top:14px">Forces en présence</div><section class="pre">`+[me,OTHER[me]].map(sd=>`<div><h3 class="${sd==="Red"?"r":"b"}">${esc(name(sd))} <span class="faint">${sd===me?"· moi":"· adversaire"}</span></h3>${missionHtml(sd,sameDi,samePr)||'<div class="empty">Missions non renseignées</div>'}</div>`).join("")+`</section>`;
   const t=TURNS[turnOf(i)];if(t)h+=notesHtml(t,null);return h}
 function turnHtml(tn,t,c){const s=t.turn,o=OTHER[s||"Red"],cl=s==="Red"?"r":"b";let h="";
   const R=RNDS.find(r=>r.turns.includes(tn));
