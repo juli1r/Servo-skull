@@ -193,6 +193,7 @@ header{position:static;flex:none}
 .pts .pt:disabled{opacity:1;color:var(--t3);border-style:dashed;background:none}
 .pcap{margin:0 0 8px;font:700 18px var(--cond);letter-spacing:.01em}
 .fr{display:flex;align-items:baseline;gap:12px;margin:8px 0}.fr b{font:800 32px/1 var(--cond);min-width:46px;font-variant-numeric:tabular-nums}
+.fr.dense{margin:5px 0}.fr.dense b{font-size:22px;min-width:34px}
 .fr b.gain{color:var(--green)}.fr b.mute{color:var(--t1)}.fr span{color:var(--t2)}
 .panel .intent{margin-top:0}.panel .intent .lab{display:block;margin-bottom:2px}.panel .intent.nt{border-left-color:var(--border2);background:var(--bg2)}
 .panel .facts{margin-top:0}.panel .tact{margin-top:0}
@@ -414,7 +415,7 @@ function keyMoments(){const out=[],pct=(x,sd)=>SW[sd]?Math.round(100*x/SW[sd]):0
 let KM=null;const OPEN={};
 function keyHtml(){const k=KM||(KM=keyMoments());if(!k.length)return "";
   const chip=m=>`<button class="kchip ${m.cls}" data-n="${m.n}"><span>${esc(m.txt)}</span><span class="kt">${esc(m.sub)}</span></button>`;
-  return `<section class="keym"><h2>À revoir dans la partie</h2>${k.slice(0,3).map(chip).join("")}${k.length>3?`<details class="more" data-d="more"${OPEN.more?" open":""}><summary>${k.length-3} autre${k.length>4?"s":""} moment${k.length>4?"s":""}</summary>${k.slice(3).map(chip).join("")}</details>`:""}</section>`}
+  return `<details class="pdet" data-d="key"${OPEN.key?" open":""}><summary>À revoir dans la partie (${k.length})</summary><section class="keym">${k.slice(0,3).map(chip).join("")}${k.length>3?`<details class="more" data-d="more"${OPEN.more?" open":""}><summary>${k.length-3} autre${k.length>4?"s":""} moment${k.length>4?"s":""}</summary>${k.slice(3).map(chip).join("")}</details>`:""}</section></details>`}
 
 // ---------- récit ----------
 function vpAt(k,s){const v=(C[k]&&C[k].vp)||{};return v[s]}
@@ -449,7 +450,8 @@ function phaseRows(k,p,active){const pi=prevWithUnits(k);if(pi<0||!C[k].units)re
   return out}
 function rowsHtml(rows){if(rows==null)return `<div class="empty">Pas de positions pour ce moment.</div>`;
   if(!rows.length)return `<div class="empty">Aucun changement sur la table pendant cette phase.</div>`;
-  return rows.map(r=>`<div class="fr"><b class="${r.c}">${r.n}</b><span>${r.t}</span></div>`).join("")}
+  const dense=rows.length>2?" dense":"";
+  return rows.map(r=>`<div class="fr${dense}"><b class="${r.c}">${r.n}</b><span>${r.t}</span></div>`).join("")}
 const notePh=k=>((C[k].phaseName||C[k].endedPhase||"")+"").replace(" Phase","");
 function notesHtml(t,pcur){let h="";for(const k of t.idx){const x=C[k];if(!(k===i||(pcur&&notePh(k)===pcur)))continue;
   for(const v of [x.intent,x.note])if(v)h+=`<div class="intent"><span class="lab">Ma note</span>${esc(v)}</div>`}return h}
@@ -491,7 +493,7 @@ function detailHtml(){const last=C[C.length-1]||{};
   return h+`</section></details>`}
 function renderPanel(){const P=$("pscroll");if(!P)return;keepFocus(P,()=>renderPanelInner(P))}
 function renderPanelInner(P){const c=C[i],tn=turnOf(i),t=TURNS[tn];
-  const seg=`<div class="pseg" role="tablist" aria-label="Contenu du panneau"><button role="tab" aria-selected="${PV==="phase"}" tabindex="${PV==="phase"?0:-1}" data-pv="phase" class="${PV==="phase"?"on":""}">Commentaire</button><button role="tab" aria-selected="${PV==="units"}" tabindex="${PV==="units"?0:-1}" data-pv="units" class="${PV==="units"?"on":""}">Unités</button></div>`;
+  const seg=`<div class="pseg" role="tablist" aria-label="Contenu du panneau"><button role="tab" aria-selected="${PV==="phase"}" tabindex="${PV==="phase"?0:-1}" data-pv="phase" class="${PV==="phase"?"on":""}">Récit</button><button role="tab" aria-selected="${PV==="units"}" tabindex="${PV==="units"?0:-1}" data-pv="units" class="${PV==="units"?"on":""}">Unités</button></div>`;
   if(PV==="units"){P.innerHTML=seg+`<div class="pmain"><div class="psub" style="margin:0">Clique une unité pour la repérer sur le plan et voir son trajet. Clique-la encore pour désélectionner.</div><div class="ulist" id="ulist"></div></div>`;unitsList();return}
   const main=(i===DEPLOY||!t)?deployHtml(c):turnHtml(tn,t,c);
   P.innerHTML=seg+`<div class="pmain">${main}</div><div class="after">${keyHtml()}${detailHtml()}</div>`}
