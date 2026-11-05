@@ -19,3 +19,5 @@ __pycache__/
 _a-supprimer/
 _ancienne-version/
 Servo-Skull.exe
+# --- état runtime du hook plan-obligatoire (CLAUDE.md règle 1) ---
+.claude/.planmode-markers/

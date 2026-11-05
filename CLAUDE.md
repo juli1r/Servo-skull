@@ -6,6 +6,8 @@ Ces règles existent parce qu'elles ont déjà été violées en session malgré
 
 Appeler `EnterPlanMode` avant le premier `Edit`/`Write` sur un fichier du projet, **y compris pour un fix ciblé déjà diagnostiqué**. Une urgence exprimée par l'utilisateur ("arrête de demander, corrige") porte sur le fait de ne plus s'arrêter pour poser des questions à chaque écart trouvé — jamais sur le fait de sauter le plan. En cas de doute : planifier quand même.
 
+**Cette règle n'est pas limitée à la session en cours — elle s'applique à toute session future, sans réinterprétation, sans exception liée au contexte ("on continue un plan déjà approuvé", "c'est juste un renommage", "le bug est évident").** Un fix découvert en cours de vérification d'un autre travail reste une nouvelle modification de code : il passe par son propre plan, même minuscule, même si le diagnostic est déjà fait et déjà raconté à l'utilisateur en texte. "Continuer le travail" n'est jamais un motif pour sauter cette étape. (Violé le 2026-11-05 : après qu'un bug de rendu signalé par l'utilisateur ait été diagnostiqué — collision de classe CSS `.mid` — Edit/commit/régénération du fichier livré ont été enchaînés directement, sans repasser par `EnterPlanMode`, au motif implicite que c'était "la suite évidente" du plan déjà approuvé pour l'Option C.)
+
 Si une question posée à l'utilisateur (AskUserQuestion ou autre) revient sans réponse exploitable ("pas de préférence", silence, réponse hors sujet) : ne JAMAIS interpréter ça comme un feu vert pour trancher seul. S'arrêter et reformuler la question en clair, en texte libre, jusqu'à obtenir une réponse réelle.
 
 ## 2. Hygiène git

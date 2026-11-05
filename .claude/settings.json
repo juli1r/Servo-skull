@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "EnterPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py -3 -c \"import sys,json,os\nd=json.load(sys.stdin)\nsid=d.get('session_id','unknown')\nos.makedirs('.claude/.planmode-markers', exist_ok=True)\nopen(f'.claude/.planmode-markers/{sid}','w').close()\" 2>/dev/null || true",
+            "statusMessage": "Enregistrement du passage en plan mode..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py -3 -c \"import sys,json,os\nd=json.load(sys.stdin)\nsid=d.get('session_id','unknown')\nmarker=f'.claude/.planmode-markers/{sid}'\nif not os.path.exists(marker):\n    print(json.dumps({'hookSpecificOutput':{'hookEventName':'PreToolUse','permissionDecision':'deny','permissionDecisionReason':\\\"Regle du projet (CLAUDE.md regle 1) : EnterPlanMode doit etre appele au moins une fois dans cette session avant tout Edit/Write/NotebookEdit, meme pour un fix cible deja diagnostique. Appelez EnterPlanMode d'abord, puis reessayez.\\\"}}))\"",
+            "statusMessage": "Vérification du plan obligatoire..."
+          }
+        ]
+      }
+    ]
+  }
+}
