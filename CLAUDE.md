@@ -25,6 +25,20 @@ Toujours complètes et autonomes (inclure le `cd` vers le dossier du projet si n
 
 Une approbation générale ("go", "c'est fini go !") ne vaut pas pour une nouvelle action de contrôle d'écran. Chaque prise de contrôle se redemande.
 
+**La demande doit être faite en clair dans le chat, AVANT d'appeler `request_access` (ou tout outil
+équivalent de contrôle d'écran) — jamais l'inverse.** Déclencher directement la popup système de
+permission n'est PAS "demander" : l'utilisateur peut la valider par réflexe sans avoir compris ce
+qui allait se passer. La séquence correcte est toujours : expliquer en une phrase en texte ce qui
+va être fait et pourquoi, attendre une réponse explicite de l'utilisateur dans le chat, et
+seulement ensuite appeler `request_access`. (Violé une fois le 2026-11-04 : popup système
+déclenchée sans préavis en chat, alors même qu'une solution plus simple sans contrôle d'écran
+existait — voir point suivant.)
+
+**Avant de recourir au contrôle d'écran, vérifier qu'il n'y a pas une solution plus simple** : un
+screenshot existant, un mockup déjà produit dans la conversation (ex. via l'outil de
+visualisation), une capture via un navigateur (qui ne nécessite pas de contrôle d'écran), etc. Le
+contrôle d'écran est un dernier recours, pas le réflexe par défaut pour "montrer une image".
+
 ## 6. Décors du film (Event Companion) : aucun débordement d'empreinte, jamais
 
 Les 16 empreintes officielles d'un layout donné (paire de dispositions + lettre A/B/C) sont fixes,
