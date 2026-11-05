@@ -37,6 +37,9 @@ header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:22px;
 /* résumé */
 .keym{margin:0 0 18px}.keym h2{font:600 13px/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--t2);margin:0 0 8px}
 .kchip{display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline;width:100%;text-align:left;text-transform:none;letter-spacing:0;font-size:14px;background:var(--bg1);border:1px solid var(--border);border-left:3px solid var(--amber);border-radius:6px;padding:7px 10px;margin-bottom:5px;color:var(--t1);font:inherit;cursor:pointer}
+/* liseré coloré : même famille visuelle que .turn/.kchip (v2, plus bas), pour rattacher un bloc du panneau à un camp/contexte sans casser l'esthétique plate */
+.strip{border-left:3px solid var(--t3);border-radius:0 6px 6px 0;padding:6px 10px;margin:6px 0}
+.strip-r{border-left-color:var(--red)}.strip-b{border-left-color:var(--blue)}.strip-coral{border-left-color:var(--coral)}
 .kchip:hover{background:var(--bg2)}.kchip .kt{font-size:12px;color:var(--t3);margin-left:auto}.kchip.loss{border-left-color:var(--red,#f87171)}.kchip.vp{border-left-color:var(--green)}.kchip.mv{border-left-color:var(--cyan)}.kchip.clk{border-left-color:#a78bfa}
 #bTTS.off{opacity:.55}
 .clock{font:500 12px "IBM Plex Mono",monospace;color:var(--t3);margin-left:auto}.summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:18px}
@@ -68,7 +71,7 @@ header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:22px;
 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;margin-top:8px;font-size:14px}
 .facts .lab{display:block;margin:6px 0 2px}
 .facts ul{margin:0;padding-left:16px}.facts li{margin:1px 0}
-.intent{margin-top:10px;border-left:3px solid var(--coral);padding:6px 10px;background:rgba(255,107,71,.07);border-radius:0 4px 4px 0;white-space:pre-wrap}
+.intent{margin-top:10px;border-left:3px solid var(--coral);padding:6px 10px;background:rgba(255,107,71,.07);border-radius:0 6px 6px 0;white-space:pre-wrap}
 .empty{color:var(--t3);font-size:13px}
 .mis{margin-top:10px;border-top:1px solid var(--border);padding-top:8px;display:grid;gap:5px;font-size:13px}
 .mis .lab{display:block;margin-bottom:1px}
@@ -364,7 +367,7 @@ function layoutName(l){const m=l.match(/^(\w+) vs (\w+) (\d+)$/);return m?`Layou
 function missionHtml(s,hideDi,hidePr){const pr=MI[lc(s)+"Primary"]||[],seen=MI[lc(s)+"SecondarySeen"]||MI[lc(s)+"Secondary"]||[],mo=MI[lc(s)+"SecMode"];
   const di=MI[lc(s)+"Disposition"];
   if(!(!hidePr&&pr.length)&&!seen.length&&!(!hideDi&&di))return "";
-  let h=`<div class="mis">`;
+  let h=`<div class="mis strip ${s==="Red"?"strip-r":"strip-b"}">`;
   if(!hideDi&&di)h+=`<div><span class="lab">Force de disposition</span><b>${esc(di)}</b></div>`;
   if(!hidePr&&pr.length)h+=`<div><span class="lab">Primaire</span><b>${pr.map(cardRef).join(" · ")}</b></div>`;
   if(seen.length||mo)h+=`<details class="secs"><summary><span class="lab">Secondaires</span><b>${seen.length} jouée${seen.length>1?"s":""}</b>${mo?`<span class="faint" style="font-size:12px">${esc(/tactical/i.test(mo)?"tactiques":"fixes")}</span>`:""}</summary>${seen.length?`<ul>${seen.map(n=>`<li>${cardRef(n)}</li>`).join("")}</ul>`:'<span class="faint">aucune vue</span>'}</details>`;
@@ -441,34 +444,34 @@ function phaseRows(k,p,active){const pi=prevWithUnits(k);if(pi<0||!C[k].units)re
   const am={};for(const u of a.units)am[u[0]]=u;const moved={};
   for(const u of c.units){const o=am[u[0]];if(o&&onBoard(u)&&alive(u)&&(Math.hypot(u[4]-o[4],u[5]-o[5])>=.5||!onBoard(o)))moved[u[9]]=sideOf(u[0])}
   const mv=Object.values(moved),mvA=mv.filter(x=>x===active).length,mvO=mv.length-mvA;
-  if(mvA)out.push({n:mvA,c:"",t:`unité${mvA>1?"s":""} ${p==="Charge"?"en charge":p==="Fight"?"engagée"+(mvA>1?"s":""):"déplacée"+(mvA>1?"s":"")}`});
-  if(mvO)out.push({n:mvO,c:"mute",t:`unité${mvO>1?"s":""} adverse${mvO>1?"s":""} déplacée${mvO>1?"s":""}`});
+  if(mvA)out.push({n:mvA,c:"",side:active,t:`unité${mvA>1?"s":""} ${p==="Charge"?"en charge":p==="Fight"?"engagée"+(mvA>1?"s":""):"déplacée"+(mvA>1?"s":"")}`});
+  if(mvO)out.push({n:mvO,c:"mute",side:OTHER[active],t:`unité${mvO>1?"s":""} adverse${mvO>1?"s":""} déplacée${mvO>1?"s":""}`});
   for(const l of losses(c,a)){const cl=l.s==="Red"?"r":"b";
-    if(l.wl)out.push({n:l.wl,c:cl,t:`${l.wl>1?"PV perdus":"PV perdu"} par ${esc(sqName(l.k))}`});
-    if(l.dead)out.push({n:l.dead,c:cl,t:`figurine${l.dead>1?"s":""} retirée${l.dead>1?"s":""} · ${esc(sqName(l.k))}${l.wiped?" détruite":""}`})}
-  for(const sd of ["Red","Blue"]){const v0=(a.vp||{})[sd],v1=(c.vp||{})[sd];if(v0!=null&&v1!=null&&v1>v0)out.push({n:"+"+(v1-v0),c:"gain",t:`VP pour ${esc(name(sd))}`})}
+    if(l.wl)out.push({n:l.wl,c:cl,side:l.s,t:`${l.wl>1?"PV perdus":"PV perdu"} par ${esc(sqName(l.k))}`});
+    if(l.dead)out.push({n:l.dead,c:cl,side:l.s,t:`figurine${l.dead>1?"s":""} retirée${l.dead>1?"s":""} · ${esc(sqName(l.k))}${l.wiped?" détruite":""}`})}
+  for(const sd of ["Red","Blue"]){const v0=(a.vp||{})[sd],v1=(c.vp||{})[sd];if(v0!=null&&v1!=null&&v1>v0)out.push({n:"+"+(v1-v0),c:"gain",side:sd,t:`VP pour ${esc(name(sd))}`})}
   return out}
 function rowsHtml(rows){if(rows==null)return `<div class="empty">Pas de positions pour ce moment.</div>`;
   if(!rows.length)return `<div class="empty">Aucun changement sur la table pendant cette phase.</div>`;
   const dense=rows.length>2?" dense":"";
-  return rows.map(r=>`<div class="fr${dense}"><b class="${r.c}">${r.n}</b><span>${r.t}</span></div>`).join("")}
+  return rows.map(r=>`<div class="fr${dense} strip ${r.side==="Red"?"strip-r":"strip-b"}"><b class="${r.c}">${r.n}</b><span>${r.t}</span></div>`).join("")}
 const notePh=k=>((C[k].phaseName||C[k].endedPhase||"")+"").replace(" Phase","");
 function notesHtml(t,pcur){let h="";for(const k of t.idx){const x=C[k];if(!(k===i||(pcur&&notePh(k)===pcur)))continue;
   for(const v of [x.intent,x.note])if(v)h+=`<div class="intent"><span class="lab">Ma note</span>${esc(v)}</div>`}return h}
 function secHtml(t,lastk,s){const cd=C[lastk].cards||{};const tm=((MI.turns||{})[t.round+"|"+t.turn])||{};
   const sec=tm[lc(s)+"Secondary"]||(s==="Red"?cd.redSecondary:cd.blueSecondary),dn=tm[lc(s)+"SecondaryDone"];
   if(!((sec&&sec.length)||(dn&&dn.length)||(s===me&&cd.myHand&&cd.myHand.length)))return "";
-  return `<div class="facts"><details class="secs" data-d="sec"${OPEN.sec?" open":""}><summary><span class="lab">Secondaires de ${esc(name(s))}</span><b>${(sec||[]).length} en jeu</b></summary>`+
+  return `<div class="facts strip ${s==="Red"?"strip-r":"strip-b"}"><details class="secs" data-d="sec"${OPEN.sec?" open":""}><summary><span class="lab">Secondaires de ${esc(name(s))}</span><b>${(sec||[]).length} en jeu</b></summary>`+
     (sec&&sec.length?`<div>En jeu : ${sec.map(cardRef).join(" · ")}</div>`:"")+(dn&&dn.length?`<div class="mute">Retirées ce tour : ${dn.map(cardRef).join(" · ")}</div>`:"")+
     (s===me&&cd.myHand&&cd.myHand.length?`<div class="mute">En main : ${cd.myHand.map(esc).join(", ")}</div>`:"")+`</details></div>`}
 function deployHtml(c){let h=`<h2 class="ptitle">Déploiement</h2>`;
   if(c&&c.units){const sq={Red:new Set(),Blue:new Set()};for(const u of c.units)if(alive(u)&&onBoard(u))sq[sideOf(u[0])].add(u[9]);
-    h+=`<div class="psub">Position des deux armées au début de la partie</div>`+[me,OTHER[me]].map(sd=>`<div class="fr dense"><b class="${sd==="Red"?"r":"b"}">${sq[sd].size}</b><span>unités ${sd===me?"à moi":"adverses · "+esc(name(sd))}</span></div>`).join("")}
+    h+=`<div class="psub">Position des deux armées au début de la partie</div>`+[me,OTHER[me]].map(sd=>`<div class="fr dense strip ${sd==="Red"?"strip-r":"strip-b"}"><b class="${sd==="Red"?"r":"b"}">${sq[sd].size}</b><span>unités ${sd===me?"à moi":"adverses · "+esc(name(sd))}</span></div>`).join("")}
   const eqArr=(a,b)=>!!a&&!!b&&a.length===b.length&&a.every((v,idx)=>v===b[idx]);
   const sameDi=MI.redDisposition&&MI.redDisposition===MI.blueDisposition;
   const samePr=eqArr(MI.redPrimary,MI.bluePrimary);
   const layoutConfirmed=D.layoutFit&&!D.layoutFit.rejected;
-  h+=`${dep.map?`<div class="psub" style="margin-top:14px">Contexte de la partie</div><div class="mis"><div><span class="lab">Carte de déploiement</span><b>${IMG[(MI.deployment||[])[0]]?`<span class="cref" tabindex="0" data-card="${esc((MI.deployment||[])[0])}">${esc(dep.map)}</span>`:esc(dep.map)}</b></div>${layoutConfirmed?`<div title="${D.layoutFit.n}/${D.layoutFit.of} décors retrouvés dans le PDF, écart moyen ${String(D.layoutFit.mean).replace(".",",")}″"><span class="lab">Plan de table</span>${esc((D.layoutFit.name||"")+" · layout "+D.layoutFit.layout)} <span class="faint">(PDF p.${D.layoutFit.page})</span></div>`:dep.layout?`<div><span class="lab">Plan de table</span>${esc(layoutName(dep.layout))}</div>`:""}${D.layoutFit&&D.layoutFit.rejected?`<div><span class="lab">Layout officiel</span><span style="color:var(--amber)">non confirmé : la table ressemble au layout ${esc(D.layoutFit.layout)} (PDF p.${D.layoutFit.page}) mais ne le recouvre qu'à ${Math.round(D.layoutFit.overlap*100)} % — formes TTS affichées telles quelles</span></div>`:!D.layoutFit&&C.some(c=>c.terrain&&c.terrain.length)?`<div><span class="lab">Layout officiel</span><span style="color:var(--amber)">table non reconnue parmi les 45 du PDF</span></div>`:""}${sameDi?`<div><span class="lab">Force de disposition</span><b>${esc(MI.redDisposition)}</b></div>`:""}${samePr?`<div><span class="lab">Primaire</span><b>${MI.redPrimary.map(cardRef).join(" · ")}</b></div>`:""}${(MI.twist||[]).length?`<div><span class="lab">Twist</span>${MI.twist.map(esc).join(" · ")}</div>`:""}</div>`:""}`;
+  h+=`${dep.map?`<div class="psub" style="margin-top:14px">Contexte de la partie</div><div class="mis strip strip-coral"><div><span class="lab">Carte de déploiement</span><b>${IMG[(MI.deployment||[])[0]]?`<span class="cref" tabindex="0" data-card="${esc((MI.deployment||[])[0])}">${esc(dep.map)}</span>`:esc(dep.map)}</b></div>${layoutConfirmed?`<div title="${D.layoutFit.n}/${D.layoutFit.of} décors retrouvés dans le PDF, écart moyen ${String(D.layoutFit.mean).replace(".",",")}″"><span class="lab">Plan de table</span>${esc((D.layoutFit.name||"")+" · layout "+D.layoutFit.layout)} <span class="faint">(PDF p.${D.layoutFit.page})</span></div>`:dep.layout?`<div><span class="lab">Plan de table</span>${esc(layoutName(dep.layout))}</div>`:""}${D.layoutFit&&D.layoutFit.rejected?`<div><span class="lab">Layout officiel</span><span style="color:var(--amber)">non confirmé : la table ressemble au layout ${esc(D.layoutFit.layout)} (PDF p.${D.layoutFit.page}) mais ne le recouvre qu'à ${Math.round(D.layoutFit.overlap*100)} % — formes TTS affichées telles quelles</span></div>`:!D.layoutFit&&C.some(c=>c.terrain&&c.terrain.length)?`<div><span class="lab">Layout officiel</span><span style="color:var(--amber)">table non reconnue parmi les 45 du PDF</span></div>`:""}${sameDi?`<div><span class="lab">Force de disposition</span><b>${esc(MI.redDisposition)}</b></div>`:""}${samePr?`<div><span class="lab">Primaire</span><b>${MI.redPrimary.map(cardRef).join(" · ")}</b></div>`:""}${(MI.twist||[]).length?`<div><span class="lab">Twist</span>${MI.twist.map(esc).join(" · ")}</div>`:""}</div>`:""}`;
   h+=`<div class="psub" style="margin-top:14px">Forces en présence</div><section class="pre">`+[me,OTHER[me]].map(sd=>`<div><h3 class="${sd==="Red"?"r":"b"}">${esc(name(sd))} <span class="faint">${sd===me?"· moi":"· adversaire"}</span></h3>${missionHtml(sd,sameDi,samePr)||'<div class="empty">Missions non renseignées</div>'}</div>`).join("")+`</section>`;
   const t=TURNS[turnOf(i)];if(t)h+=notesHtml(t,null);return h}
 function turnHtml(tn,t,c){const s=t.turn,o=OTHER[s||"Red"],cl=s==="Red"?"r":"b";let h="";
@@ -482,7 +485,7 @@ function turnHtml(tn,t,c){const s=t.turn,o=OTHER[s||"Red"],cl=s==="Red"?"r":"b";
   h+=`<div class="pts">`+PH_ORDER.map(p=>{const k=t.ph[p];const hn=t.idx.some(q=>notePh(q)===p&&(C[q].note||C[q].intent));return k==null?`<button class="pt" disabled title="Non capturé">${esc(phase(p))}</button>`:`<button class="pt${k===i?" on":""}${hn?" nt":""}" data-k="${k}"${hn?' title="Une note sur cette phase"':""}>${esc(phase(p))}</button>`}).join("")+`</div>`;
   const pcur=PH_ORDER.find(p=>t.ph[p]===i);
   h+=`<section><div class="pcap">${pcur?"Pendant la phase de "+esc(phase(pcur).toLowerCase()):esc(c&&c.kind==="manual"?"Capture F8":(c&&c.label)||"Capture")}</div>${c&&c.shiftedFrom?`<p class="faint" style="margin:0 0 6px">${c.shiftedFrom} unités ont bougé alors que la phase affichée était « Commandement » (phase non passée) : leurs déplacements sont rangés ici, en Mouvement.</p>`:""}${c&&c.approx?`<p class="faint" style="margin:0 0 6px">Positions reconstituées depuis la sauvegarde TTS (début ou fin du tour) : la phase exacte n'a pas été lue.</p>`:""}${rowsHtml(phaseRows(i,pcur||"",s))}</section>`;
-  h+=notesHtml(t,pcur)+secHtml(t,lastk,s);
+  h+=notesHtml(t,pcur)+secHtml(t,lastk,"Red")+secHtml(t,lastk,"Blue");
   if(t.round!=null&&t.seq.length)h+=`<div class="tact"><button class="tplay lnk" data-n="${tn}" title="Lit ce tour, phase par phase">▶ Revoir ce tour</button><button class="tgif lnk" data-n="${tn}" title="GIF de ce tour uniquement">GIF du tour</button></div>`;
   return h}
 function detailHtml(){const last=C[C.length-1]||{};
