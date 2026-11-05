@@ -1,6 +1,6 @@
 """GIF animé du plan, généré en Python (Pillow) à la fin de chaque partie.
 
-Même dessin que le plan du film (film_template.html), simplifié : décors, objectifs,
+Même dessin que le plan du récap (recap_template.html), simplifié : décors, objectifs,
 figurines avec PV, noms d'unités, flèches de mouvement depuis la capture précédente,
 figurines retirées, et un bandeau round / tour / phase / score.
 """
@@ -278,6 +278,6 @@ def render(data: dict, out: Path, indices: list[int] | None = None, width: int =
 if __name__ == "__main__":  # python gif_render.py <dossier de partie>
     sys.path.insert(0, str(Path(__file__).parent))
     from core import Session
-    import film
+    import recap
     sess = Session.open(Path(sys.argv[1]))
-    print(render(film.collect(sess), sess.dir / "evolution-du-plan.gif"))
+    print(render(recap.collect(sess), sess.dir / "evolution-du-plan.gif"))

@@ -9,7 +9,7 @@ utiles seulement pour rejouer un moment). La contribution anonyme, elle, fait **
 |---|---|---|---|
 | `sauvegardes-tts/` | ~190 Mo | oui (pseudos, noms de listes) | non |
 | `units/` (scripts du mod par figurine) | ~3 Mo | possible (surnoms) | non |
-| `film.html`, `evolution-du-plan.gif` | ~4 Mo | oui (pseudos) | non |
+| `recap.html`, `evolution-du-plan.gif` | ~4 Mo | oui (pseudos) | non |
 | `game.json` (captures + pseudos) | ~160 Ko | oui | non, reconstruit |
 | `captures/` | ~700 Ko | possible | non |
 | Unités : nom, camp, effectifs, positions | quelques Ko | non | **oui** |

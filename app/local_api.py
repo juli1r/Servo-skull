@@ -1,4 +1,4 @@
-"""Petit serveur local (127.0.0.1) pour que le film.html puisse demander « rejouer ce moment dans TTS ».
+"""Petit serveur local (127.0.0.1) pour que le recap.html puisse demander « rejouer ce moment dans TTS ».
 
 Sécurité : n'écoute que sur la boucle locale, n'accepte que les pages ouvertes depuis un fichier (Origin « null »)
 ou sans Origin, ne touche qu'aux dossiers de parties, et NE FAIT RIEN sans confirmation dans l'overlay."""

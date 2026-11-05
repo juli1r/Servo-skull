@@ -1,6 +1,6 @@
 """Contribution anonyme : transforme les données d'une partie en un petit fichier sans donnée personnelle.
 
-Principe : on part de ce qui sert au film (film.collect), puis on ne garde que ce qui sert aux statistiques
+Principe : on part de ce qui sert au récap (recap.collect), puis on ne garde que ce qui sert aux statistiques
 (composition des armées, mission, plan de table, positions, scores) et on retire tout le reste : pseudos
 (remplacés par Joueur A / Joueur B), identifiants d'objets, captures d'écran, horodatages précis, notes libres,
 noms de dossiers, liens. Le fichier n'est jamais envoyé automatiquement : il est écrit sur le disque et son contenu
@@ -14,7 +14,7 @@ import uuid
 from collections import Counter
 from pathlib import Path
 
-import film
+import recap
 from core import VERSION, Session
 
 SCHEMA = 1
@@ -99,7 +99,7 @@ def _mission(m: dict, secrets: list[str]) -> dict:
 
 
 def build(session: Session) -> dict:
-    d = film.collect(session)
+    d = recap.collect(session)
     g = session.game
     secrets = [p for p in (g.get("players") or {}).values() if isinstance(p, str) and len(p) >= 3]
     secrets += [session.dir.name]

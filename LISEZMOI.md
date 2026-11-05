@@ -1,6 +1,6 @@
-# Servo-Skull — le film de tes parties 40K sur Tabletop Simulator
+# Servo-Skull — le récap de tes parties 40K sur Tabletop Simulator
 
-Un petit programme qui tourne **sur ton PC uniquement**. Il lit la table LCT pendant que tu joues, capture chaque tour (positions, PV, score, phase, cartes, capture d'écran) avec ton intention du moment, puis te génère un **film de la partie** à revoir à froid.
+Un petit programme qui tourne **sur ton PC uniquement**. Il lit la table LCT pendant que tu joues, capture chaque tour (positions, PV, score, phase, cartes, capture d'écran) avec ton intention du moment, puis te génère un **récap de la partie** à revoir à froid.
 
 Ton adversaire ne voit rien : aucune interface, aucun script ni objet n'est ajouté à la table. Le programme interroge TTS à la demande, en lecture seule. Seule **ta** caméra bouge, au moment où tu captures.
 
@@ -23,12 +23,12 @@ Ordre : **TTS d'abord, l'exe ensuite** (`build.bat` ne sert qu'à l'installation
    - **F8** ou **Capturer** : ta caméra se place sur la vue enregistrée, puis capture d'écran + données + ton intention/ta note.
    - **Capture auto** à la fin de chaque Mouvement (les deux joueurs) et au lancement de la partie. Données seules : ta caméra ne bouge pas.
    - **Alerte** si un tour passe sans capture manuelle : bouton *Rattraper maintenant*.
-5. **Terminer** : le film s'ouvre dans ton navigateur.
+5. **Terminer** : le récap s'ouvre dans ton navigateur.
 
 Tout est rangé dans le sous-dossier `parties\<date>_<Rouge>-vs-<Bleu>\` :
-`film.html`, `game.json`, `captures\` (données + photos), `units\` (de quoi recréer les figurines).
+`recap.html`, `game.json`, `captures\` (données + photos), `units\` (de quoi recréer les figurines).
 
-## Le film
+## Le récap
 
 - **Plan** : vue du dessus identique d'un tour à l'autre, ta zone en bas. Il montre les flèches de mouvement depuis la capture précédente, des croix pour les figurines retirées, un contour orange pour les unités blessées, les objectifs avec leur rayon de 3".
 - **Capture d'écran** : la photo prise au même moment (captures manuelles).

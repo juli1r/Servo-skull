@@ -1,4 +1,4 @@
-"""Orchestration sans interface : lecture périodique, captures, alertes, film.
+"""Orchestration sans interface : lecture périodique, captures, alertes, récap.
 L'overlay (overlay.py) ne fait que l'afficher et lui transmettre les clics."""
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import threading
 import time
 from pathlib import Path
 
-import film
+import recap
 import contribution
 import cogitator_export
 import upload
@@ -82,7 +82,7 @@ class Controller:
             self._apply_rounds(self.state)
             self._save_seq()
         self.pending_alert = None
-        film.build(self.session)
+        recap.build(self.session)
         self.emit("session", {"mode": mode, "dir": str(self.session.dir)})
         self.emit("state", self.state)
         if mode == "host" and self.cfg.get("debug_dump"):
@@ -183,7 +183,7 @@ class Controller:
             self.emit("error", f"Copie de la sauvegarde TTS impossible : {e}")
             return
         if meta:
-            film.build(s)
+            recap.build(s)
             self.emit("saved", meta)
 
     def export_saves_to_tts(self, session: Session) -> Path | None:
@@ -207,7 +207,7 @@ class Controller:
         if not self.session:
             return None
         self.session.finish()
-        out = film.build(self.session)
+        out = recap.build(self.session)
         try:
             cogitator_export.export(self.session)
         except Exception as e:
@@ -221,7 +221,7 @@ class Controller:
         def make_gif():  # fil non « daemon » : le programme attend la fin du GIF avant de se fermer
             try:
                 import gif_render
-                gif_render.render(film.collect(sess), sess.dir / "evolution-du-plan.gif",
+                gif_render.render(recap.collect(sess), sess.dir / "evolution-du-plan.gif",
                                   frame_ms=int(self.cfg.get("gif_frame_ms", 5000)),
                                   last_ms=int(self.cfg.get("gif_last_ms", 8000)))
             except Exception as e:
@@ -484,7 +484,7 @@ class Controller:
                 if self.pending_alert and key == tuple(self.pending_alert):
                     self.pending_alert = None
                     self.emit("alert_clear", None)
-            film.build(self.session)
+            recap.build(self.session)
             if len(self.session.game["captures"]) == 1:
                 self._check_layout()
             self.emit("captured", meta)
@@ -494,22 +494,22 @@ class Controller:
         """Prévient en tout début de partie si les décors ne collent pas au layout officiel de
         l'Event Companion (comparaison faite à chaque capture, jamais remontée sinon)."""
         try:
-            data = film.collect(self.session)
+            data = recap.collect(self.session)
         except Exception:
             return
         has_terrain = any(len(t) > 6 and t[6] for c in data["captures"] for t in (c.get("terrain") or []))
         if not has_terrain:
             return
         fit = data.get("layoutFit")
-        # une fois le layout identifié (carte de déploiement lue dans TTS), le film utilise toujours les
+        # une fois le layout identifié (carte de déploiement lue dans TTS), le récap utilise toujours les
         # dimensions EXACTES de l'Event Companion pour ces décors, quelle que soit la position réelle sur
         # la table — donc rien à signaler dans ce cas, même si le recouvrement mesuré est faible.
         if fit is None:
             self.emit("layout_warn", {"text": "Table non reconnue parmi les 45 layouts officiels de l'Event Companion "
-                                               "— plan approximatif dans le film, pas les dimensions officielles."})
+                                               "— plan approximatif dans le récap, pas les dimensions officielles."})
         elif fit.get("rejected"):
             self.emit("layout_warn", {"text": f"Décors proches du layout {fit['layout']} (p.{fit['page']}) mais identité "
-                                               "non confirmée — plan approximatif dans le film, pas les dimensions officielles."})
+                                               "non confirmée — plan approximatif dans le récap, pas les dimensions officielles."})
 
     def catch_up(self, intent="", note=""):
         """Rattrapage du tour signalé par l'alerte : la table actuelle = fin de ce tour."""

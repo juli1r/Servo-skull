@@ -41,7 +41,7 @@ screenshot existant, un mockup déjà produit dans la conversation (ex. via l'ou
 visualisation), une capture via un navigateur (qui ne nécessite pas de contrôle d'écran), etc. Le
 contrôle d'écran est un dernier recours, pas le réflexe par défaut pour "montrer une image".
 
-## 6. Décors du film (Event Companion) : aucun débordement d'empreinte, jamais
+## 6. Décors du récap (Event Companion) : aucun débordement d'empreinte, jamais
 
 Les 16 empreintes officielles d'un layout donné (paire de dispositions + lettre A/B/C) sont fixes,
 identiques quelle que soit la table — même kit physique, même géométrie, seule la combinaison

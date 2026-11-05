@@ -337,7 +337,7 @@ class TurnTracker:
             ev.append(("phase_ended", pk, p.get("phaseName") or ""))
             if p.get("phase") == 2:
                 ev.append(("movement_ended", pk))
-            # phases passées trop vite pour être vues entre deux lectures : on les ajoute, dans l'ordre, pour que le film ait toujours les 5 phases
+            # phases passées trop vite pour être vues entre deux lectures : on les ajoute, dans l'ordre, pour que le récap ait toujours les 5 phases
             try:
                 pp, np_ = int(p.get("phase") or 0), int(st.get("phase") or 0)
                 if pk and nk and 1 <= pp <= 5:
@@ -373,7 +373,7 @@ def _slug(s: str) -> str:
 def find_unfinished_session(root: Path) -> dict | None:
     """Démarrage : la dernière partie du dossier n'a jamais été marquée « terminée »
     (fermeture anormale de l'outil, perte de connexion TTS…) — on prévient l'hôte
-    plutôt que de laisser un film/score tronqué passer inaperçu."""
+    plutôt que de laisser un récap/score tronqué passer inaperçu."""
     try:
         folders = sorted((d for d in root.iterdir() if (d / "game.json").exists()),
                          key=lambda d: d.stat().st_mtime, reverse=True)

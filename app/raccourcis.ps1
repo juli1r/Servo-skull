@@ -45,7 +45,7 @@ $Root = (Resolve-Path $Root).Path
 $py = Join-Path $Root ".venv\Scripts\pythonw.exe"
 $main = Join-Path $Root "app\main.py"
 $ico = Join-Path $Root "app\assets\servo-skull.ico"
-$desc = "Servo-Skull : capture et film de tes parties 40K sur TTS"
+$desc = "Servo-Skull : capture et récap de tes parties 40K sur TTS"
 $targets = @(
   (Join-Path ([Environment]::GetFolderPath("Desktop")) "Servo-Skull.lnk"),
   (Join-Path ([Environment]::GetFolderPath("Programs")) "Servo-Skull.lnk")

@@ -17,7 +17,7 @@ python -m pip install --upgrade pip >nul
 pip install -r requirements.txt pyinstaller || goto :err
 pyinstaller --noconfirm --onefile --windowed --name Servo-Skull --paths app ^
   --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32 ^
-  --add-data "app\film_template.html;." --add-data "app\assets;assets" --add-data "app\data;data" --icon "app\assets\servo-skull.ico" ^
+  --add-data "app\recap_template.html;." --add-data "app\assets;assets" --add-data "app\data;data" --icon "app\assets\servo-skull.ico" ^
   app\main.py || goto :err
 copy /y dist\Servo-Skull.exe . >nul
 echo.

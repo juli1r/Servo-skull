@@ -1,13 +1,13 @@
 """Vérifie que la table de chaque partie est identifiable comme un layout du Event Companion.
 Usage: python tests/verif_layout.py [filtre]   (code retour 1 si une table à décors n'est pas reconnue / s'écarte)
-Contrôles : layout reconnu parmi les 45 ; écart moyen <= 1,0" ; zones présentes. Le film affiche
+Contrôles : layout reconnu parmi les 45 ; écart moyen <= 1,0" ; zones présentes. Le récap affiche
 toujours la géométrie mesurée sur TTS (jamais une forme reconstituée du PDF), donc ce script ne
 contrôle que l'IDENTIFICATION du layout, pas ce qui est dessiné."""
 import sys, math
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 from core import Session
-import film
+import recap
 
 root = Path(__file__).resolve().parent.parent / "parties"
 only = sys.argv[1:]
@@ -16,7 +16,7 @@ for d in sorted(root.iterdir()):
     if not (d / "game.json").exists() or (only and not any(o in d.name for o in only)):
         continue
     try:
-        data = film.collect(Session.open(d))
+        data = recap.collect(Session.open(d))
     except Exception as e:
         print(f"ERREUR     {d.name}: {e}"); bad += 1; continue
     fit = data.get("layoutFit")

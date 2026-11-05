@@ -25,7 +25,7 @@ def nearest_letter(cx, cy, labels):
     return min(labels, key=lambda l: (l[1] - cx) ** 2 + (l[2] - cy) ** 2)[0]
 
 def _in_poly(x, z, poly):
-    # même logique que app/film.py:_in_poly (ray casting), dupliquée pour ne pas ajouter
+    # même logique que app/recap.py:_in_poly (ray casting), dupliquée pour ne pas ajouter
     # de dépendance entre ce script d'extraction et le reste de l'app.
     ins = False
     j = len(poly) - 1

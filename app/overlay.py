@@ -360,7 +360,7 @@ class Overlay:
         if info and hasattr(self, "lbl_unfinished") and self.lbl_unfinished.winfo_exists():
             self.lbl_unfinished.config(
                 text=f"⚠ La partie « {info['name']} » ne s'est pas terminée normalement "
-                     f"({info['captures']} capture(s) enregistrée(s)) — son score/film peut être incomplet. "
+                     f"({info['captures']} capture(s) enregistrée(s)) — son score/récap peut être incomplet. "
                      "Clique pour masquer.")
             self.lbl_unfinished.pack(fill="x")
 
@@ -432,7 +432,7 @@ class Overlay:
         self._make_draggable(self.badge, on_click=self._toggle_shell)
         self._popup_menu(self.badge,
                          ("Déplier/replier", self._toggle_shell),
-                         ("Film de la partie", self._open_film),
+                         ("Récap de la partie", self._open_recap),
                          (None, None),
                          ("Quitter", self.quit))
         self._shell_open = False
@@ -505,7 +505,7 @@ class Overlay:
         bot.pack(fill="x")
         # texte plutôt qu'icônes : un glyphe Unicode obscur (⚕, ↺…) ne s'affiche pas pareil
         # (ou pas du tout) selon les polices installées — "Diag" se comprend toujours, pas ⚕.
-        self._btn(bot, "Film", self._open_film).pack(side="left")
+        self._btn(bot, "Récap", self._open_recap).pack(side="left")
         if mode == "host":
             self._btn(bot, "Vue", self._camera_dialog).pack(side="left", padx=(4, 0))
             self._btn(bot, "Diag", self._diagnose).pack(side="left", padx=(4, 0))
@@ -588,13 +588,13 @@ class Overlay:
     def _dismiss(self):
         self.ctl.dismiss_alert()
 
-    def _open_film(self):
+    def _open_recap(self):
         if self.ctl.session:
-            import film
-            webbrowser.open((film.build(self.ctl.session)).resolve().as_uri())
+            import recap
+            webbrowser.open((recap.build(self.ctl.session)).resolve().as_uri())
 
     def _finish(self):
-        if not messagebox.askyesno("Terminer la partie", "Terminer cette partie et ouvrir le film ?", parent=self.root):
+        if not messagebox.askyesno("Terminer la partie", "Terminer cette partie et ouvrir le récap ?", parent=self.root):
             return
         out = self.ctl.finish_session()
         if out:
@@ -682,7 +682,7 @@ class Overlay:
             self.emit("error", f"Caméra : {e}")
 
     def request_restore(self, folder, cid):
-        """Appelée par le film (serveur local) : demande de restaurer une capture. Rien ne bouge sans ton accord ici."""
+        """Appelée par le récap (serveur local) : demande de restaurer une capture. Rien ne bouge sans ton accord ici."""
         try:
             s = Session.open(Path(folder))
             m = next((c for c in s.game["captures"] if c["id"] == cid and c.get("data")), None)
@@ -696,7 +696,7 @@ class Overlay:
             self.root.deiconify()
             self.root.lift()
             ok = messagebox.askyesno("Rejouer ce moment",
-                                     f"Le film demande de remettre la table dans l'état :\n« {m['label']} »\n\n"
+                                     f"Le récap demande de remettre la table dans l'état :\n« {m['label']} »\n\n"
                                      "Les figurines de la table ouverte dans TTS vont être déplacées.\n"
                                      "À faire sur une partie chargée pour l'analyse, pas en plein match.",
                                      parent=self.root, icon="warning")
@@ -942,7 +942,7 @@ class Overlay:
             import ctypes
             ctypes.windll.user32.PostThreadMessageW(self._hotkey_tid, 0x0012, 0, 0)  # WM_QUIT
         # la fenêtre disparaît tout de suite ; le rangement (arrêt du veilleur dans TTS,
-        # génération du film) se termine ensuite, sans faire attendre
+        # génération du récap) se termine ensuite, sans faire attendre
         self.root.withdraw()
         self.root.update()
         if self.ctl.session and self.ctl.session.game["captures"]:

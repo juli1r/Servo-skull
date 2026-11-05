@@ -2,7 +2,7 @@
 
 Contrairement à `contribution.py`, ce fichier n'anonymise rien : il est fait
 pour être relu et importé par le joueur lui-même dans l'onglet Résultats/Vox
-d'un event Cogitator, à côté de `film.html` et du GIF."""
+d'un event Cogitator, à côté de `recap.html` et du GIF."""
 from __future__ import annotations
 
 import json

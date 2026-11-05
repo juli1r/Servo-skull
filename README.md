@@ -1,6 +1,6 @@
 # Servo-Skull
 
-Le « film » de tes parties de Warhammer 40K (11e) sur **Tabletop Simulator** : capture automatique de chaque phase (positions, PV, score, cartes), puis un film HTML à revoir à froid et un GIF de la partie à partager.
+Le « récap » de tes parties de Warhammer 40K (11e) sur **Tabletop Simulator** : capture automatique de chaque phase (positions, PV, score, cartes), puis un récap HTML à revoir à froid et un GIF de la partie à partager.
 
 Il tourne **sur ton PC uniquement** : rien n'est ajouté à la table, ton adversaire ne voit rien.
 
@@ -20,7 +20,7 @@ Il tourne **sur ton PC uniquement** : rien n'est ajouté à la table, ton advers
 ## Utiliser
 Lance **TTS d'abord**, charge la table, puis Servo-Skull. Le guide détaillé (vue caméra, raccourci F8, mode invité, restauration d'un tour…) est dans [`LISEZMOI.md`](LISEZMOI.md).
 
-Les parties sont rangées dans le dossier `parties` à côté du programme, avec un `film.html` et un GIF par partie.
+Les parties sont rangées dans le dossier `parties` à côté du programme, avec un `recap.html` et un GIF par partie.
 
 ## Si ça ne marche pas
 Envoie à celui qui t'a donné le logiciel le fichier **`servo-skull.log`** (à côté du programme) et dis ce que tu faisais. Il contient les noms des joueurs et des unités de ta partie, rien d'autre de personnel.

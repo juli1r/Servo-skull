@@ -1,4 +1,4 @@
-"""Génère film.html : le « film » de la partie, ouvrable hors ligne dans un navigateur."""
+"""Génère recap.html : le « récap » de la partie, ouvrable hors ligne dans un navigateur."""
 from __future__ import annotations
 
 import json
@@ -793,7 +793,7 @@ def _refine_sides_by_zone(sides: dict, doubt_guids, caps: list, zones: dict | No
 
 
 def _doubt_names(doubt_guids, caps: list, names: dict) -> list:
-    """Noms des escouades dont le camp est incertain (à vérifier dans le film)."""
+    """Noms des escouades dont le camp est incertain (à vérifier dans le récap)."""
     doubt = set(doubt_guids)
     if not doubt:
         return []
@@ -843,7 +843,7 @@ def shift_command_moves(caps: list[dict]) -> int:
 
 
 def collect(session: Session) -> dict:
-    """Toutes les données du film (aussi utilisées pour le GIF)."""
+    """Toutes les données du récap (aussi utilisées pour le GIF)."""
     g = session.game
     board = g.get("board") or {"w": 60, "d": 44}
     caps, cache = [], {"_hint": layout_hint(g["captures"])}
@@ -875,9 +875,9 @@ def collect(session: Session) -> dict:
 def build(session: Session) -> Path:
     data = collect(session)
     html = TEMPLATE.replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False).replace("</", "<\\/"))
-    out = session.dir / "film.html"
+    out = session.dir / "recap.html"
     out.write_text(html, encoding="utf-8")
     return out
 
 
-TEMPLATE = (Path(__file__).resolve().parent / "film_template.html").read_text(encoding="utf-8")
+TEMPLATE = (Path(__file__).resolve().parent / "recap_template.html").read_text(encoding="utf-8")
