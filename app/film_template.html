@@ -100,8 +100,10 @@ details.units{border-top:1px solid var(--border);max-height:34vh;overflow:auto}
   details.units:not([open]){width:auto;writing-mode:vertical-rl}
   details.units:not([open]) summary{padding:12px 8px}}
 details.units summary{padding:8px 12px;cursor:pointer;font:700 12px var(--cond);letter-spacing:.08em;text-transform:uppercase;color:var(--t2)}
-.ulist{padding:0 12px 10px}.u{display:grid;grid-template-columns:1fr auto;gap:8px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:14px}
+.ulist{padding:0 12px 10px}.u{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:8px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:14px}
 .u:hover{background:var(--bg2)}.u.sel{outline:1px solid var(--cyan);background:rgba(56,189,248,.06)}.u.dead{color:var(--t3);text-decoration:line-through}
+.u .flip{background:none;border:1px solid var(--bg2);border-radius:4px;color:var(--t2);font-size:12px;line-height:1;padding:3px 6px;cursor:pointer}
+.u .flip:hover{color:var(--t1);border-color:var(--t3)}
 .u b{font:700 14px var(--cond)}
 svg text{pointer-events:none;font-family:var(--cond)}.m{cursor:pointer}
 #board.tool{cursor:crosshair;touch-action:none}#board.tool .m{cursor:crosshair}
@@ -300,7 +302,13 @@ let stepN=0,stepAnim=null,lastTn=-1;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const name=c=>D.players[c]||FR[c];
-const sideOf=g=>{const s=D.sides[g]||"Red";return swap?OTHER[s]:s};
+const GUID_SQ={};for(const c of C)for(const u of c.units||[])if(!(u[0] in GUID_SQ))GUID_SQ[u[0]]=u[9];
+const OVKEY="servo-skull:sideOverrides:"+(D.created||"")+":"+(D.folder||"");
+const loadOverrides=()=>{try{return JSON.parse(localStorage.getItem(OVKEY)||"{}")}catch(e){return {}}};
+const saveOverrides=o=>{try{Object.keys(o).length?localStorage.setItem(OVKEY,JSON.stringify(o)):localStorage.removeItem(OVKEY)}catch(e){}};
+let OV=loadOverrides();
+const sideOf=g=>{const sq=GUID_SQ[g],ov=sq&&OV[sq];const s=ov||D.sides[g]||"Red";return swap?OTHER[s]:s};
+function flipSide(k,cur){OV[k]=OTHER[cur];saveOverrides(OV);draw();unitsList()}
 const colOf=s=>s==="Red"?"#f87171":"#378add",lightOf=s=>s==="Red"?"#fca5a5":"#7db7f0";
 const sqName=k=>D.squadNames[k]||"?";
 const phase=n=>{n=(n||"").replace(" Phase","");return PH[n]||n};
@@ -721,8 +729,9 @@ function unitsList(){if(!$("ulist"))return;const c=C[i];if(!c||!c.units){$("ulis
   const sqs=squadsOf(c);let h="";
   for(const s of [me,OTHER[me]]){h+=`<div class="lab" style="margin:8px 0 4px">${esc(name(s))}${s===me?" · moi":""}</div>`;
     for(const k of Object.keys(sqs).filter(k=>sideOf(sqs[k][0][0])===s).sort((a,b)=>sqName(a).localeCompare(sqName(b)))){const st=squadState(sqs[k]);
-      h+=`<div class="u ${st.dead?"dead":""} ${selSquad===k?"sel":""}" data-sq="${esc(k)}"><span>${esc(sqName(k))}${st.on===0&&!st.dead?' <span class="faint">· réserve</span>':""}</span><b class="${s==="Red"?"r":"b"}">${st.cur}/${st.mx}</b></div>`}}
-  $("ulist").innerHTML=h;document.querySelectorAll(".u").forEach(e=>e.onclick=()=>select(e.dataset.sq))}
+      h+=`<div class="u ${st.dead?"dead":""} ${selSquad===k?"sel":""}" data-sq="${esc(k)}"><span>${esc(sqName(k))}${st.on===0&&!st.dead?' <span class="faint">· réserve</span>':""}${OV[k]?' <span class="faint" title="Camp corrigé à la main">·corrigé</span>':""}</span><button class="flip" data-sq="${esc(k)}" data-side="${s}" title="Changer de camp">⇄</button><b class="${s==="Red"?"r":"b"}">${st.cur}/${st.mx}</b></div>`}}
+  $("ulist").innerHTML=h;document.querySelectorAll(".u").forEach(e=>e.onclick=()=>select(e.dataset.sq));
+  document.querySelectorAll(".flip").forEach(e=>e.onclick=ev=>{ev.stopPropagation();flipSide(e.dataset.sq,e.dataset.side)})}
 function select(k){selSquad=selSquad===k?null:k;draw();unitsList()}
 function render(){const c=C[i];
   renderTabs();renderPanel();

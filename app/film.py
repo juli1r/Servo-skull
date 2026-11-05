@@ -278,6 +278,23 @@ def _pt_in(x: float, z: float, poly: list) -> bool:
     return ins
 
 
+def _dist_to_poly(x: float, z: float, poly: list) -> float:
+    """Distance (pouces) du point au contour le plus proche (segment le plus proche, pas juste un sommet)."""
+    best = math.inf
+    n = len(poly)
+    for a in range(n):
+        x1, z1 = poly[a]
+        x2, z2 = poly[(a + 1) % n]
+        dx, dz = x2 - x1, z2 - z1
+        t = 0.0 if not (dx or dz) else max(0.0, min(1.0, ((x - x1) * dx + (z - z1) * dz) / (dx * dx + dz * dz)))
+        px, pz = x1 + t * dx, z1 + t * dz
+        best = min(best, math.hypot(x - px, z - pz))
+    return best
+
+
+_NEAR_ZONE_MAX = 12.0  # pouces : au-delà d'une des deux zones, trop loin pour qu'elle serve de preuve
+
+
 def overlap(foot: list, fit: dict) -> list:
     """Pour chaque décor TTS (rectangle tourné) : part de sa surface qui tombe dans un contour officiel du layout."""
     polys = [[list(_pdf_world(u, v, fit["sg"])) for u, v in f["poly"]] for f in fit["l"]["footprints"]]
@@ -732,8 +749,10 @@ def _refine_sides_by_zone(sides: dict, doubt_guids, caps: list, zones: dict | No
     confiance à une zone ; l'autre zone est déduite par complément s'il n'y en a qu'une de sûre),
     puis on reclasse TOUTES les unités dont la position tombe sans ambiguïté dans une seule des
     deux zones — pas seulement celles déjà signalées douteuses, certaines étant mal classées avec
-    une fausse confiance par l'heuristique en direct. Les unités hors des deux zones (réserves
-    jamais captées au déploiement, etc.) gardent leur attribution actuelle."""
+    une fausse confiance par l'heuristique en direct. Une unité hors des deux zones (ex. layout en
+    L : posée dans l'espace entre les deux, jamais vraiment "dans" sa zone) est quand même reclassée
+    sur la zone la plus proche si elle est à ≤ _NEAR_ZONE_MAX pouces ; au-delà, trop incertain
+    (vraie réserve hors table...), elle garde son attribution actuelle."""
     sides = dict(sides)
     doubt_guids = set(doubt_guids)
     if not zones or len(zones.get("atk") or []) < 3 or len(zones.get("def") or []) < 3:
@@ -765,6 +784,11 @@ def _refine_sides_by_zone(sides: dict, doubt_guids, caps: list, zones: dict | No
         if len(hit) == 1 and hit[0] in zone_side:
             sides[guid] = zone_side[hit[0]]
             resolved.add(guid)
+        elif not hit and len(zone_side) == 2:  # entre les deux zones (layout en L, etc.) : la plus proche, si proche
+            nearest = min(zones, key=lambda k: _dist_to_poly(x, z, zones[k]))
+            if _dist_to_poly(x, z, zones[nearest]) <= _NEAR_ZONE_MAX:
+                sides[guid] = zone_side[nearest]
+                resolved.add(guid)
     return sides, sorted(doubt_guids - resolved)
 
 
