@@ -213,22 +213,30 @@ def layout_hint(captures: list) -> dict | None:
     """Identité du layout lue dans le jeu : paire de forces de disposition + numéro de la carte de
     déploiement (« PtF vs Dis 3 - … » : 1/2/3 = layout A/B/C, comme le fait le mod). Source de vérité : le choix
     fait par les joueurs, pas une déduction à partir des positions."""
-    pair, idx = None, None
+    pair = None
     for m in captures:
         c = m.get("cards") or {}
         if not isinstance(c, dict):
             continue
         r, b = (c.get("redDisposition") or "").upper(), (c.get("blueDisposition") or "").upper()
-        if pair is None and r in DISPOSITIONS and b in DISPOSITIONS:
+        if r in DISPOSITIONS and b in DISPOSITIONS:
             pair = frozenset((r, b))
-        if idx is None:
-            for dn in c.get("deployment") or []:
-                mm = re.search(r"\s(\d+)\s*-", str(dn))
-                if mm and mm.group(1) in "123":
-                    idx = "ABC"[int(mm.group(1)) - 1]
-                    break
-        if pair and idx:
             break
+    # lettre : en tout début de partie, la zone de déploiement contient encore les 3 cartes
+    # candidates (une par layout de la paire) avant que les joueurs n'en gardent qu'une — on ne
+    # la lit donc que sur la capture, en partant de la plus récente, où il n'en reste qu'une
+    # seule (le choix acté), jamais sur la première trouvée.
+    idx = None
+    for m in reversed(captures):
+        c = m.get("cards") or {}
+        if not isinstance(c, dict):
+            continue
+        dep = c.get("deployment") or []
+        if len(dep) == 1:
+            mm = re.search(r"\s(\d+)\s*-", str(dep[0]))
+            if mm and mm.group(1) in "123":
+                idx = "ABC"[int(mm.group(1)) - 1]
+                break
     return {"pair": pair, "letter": idx} if (pair or idx) else None
 
 
