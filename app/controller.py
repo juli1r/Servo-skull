@@ -11,10 +11,20 @@ import recap
 import contribution
 import cogitator_export
 import live_share
+import toast
 import upload
 import lua_scripts as L
 from core import Session, TurnTracker, normalize_state, turn_label
 from tts_client import TTSClient, TTSError, TTSUnavailable
+
+
+def _toast_text(meta: dict) -> str:
+    key = tuple(meta["turnKey"]) if meta.get("turnKey") else None
+    label = turn_label(key) if key else "Capture"
+    vp = meta.get("vp") or {}
+    if vp.get("Red") is not None or vp.get("Blue") is not None:
+        label += f" · {vp.get('Red', '–')}-{vp.get('Blue', '–')}"
+    return label
 
 
 class Controller:
