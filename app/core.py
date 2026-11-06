@@ -484,6 +484,20 @@ class Session:
         self._save_game()
         return meta
 
+    def remove_last_capture(self) -> dict | None:
+        """Annule la dernière capture : retire sa métadonnée et ses fichiers (data/screenshot)
+        sur disque. Les captures précédentes ne sont jamais touchées."""
+        if not self.game["captures"]:
+            return None
+        meta = self.game["captures"].pop()
+        for rel in (meta.get("data"), meta.get("screenshot")):
+            if rel:
+                p = self.dir / rel
+                if p.exists():
+                    p.unlink()
+        self._save_game()
+        return meta
+
     def _label(self, m: dict) -> str:
         parts = []
         if m.get("round") is not None:
