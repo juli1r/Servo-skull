@@ -14,7 +14,7 @@ import live_share
 import toast
 import upload
 import lua_scripts as L
-from core import Session, TurnTracker, normalize_state, turn_label
+from core import Session, TurnTracker, normalize_state, turn_label, is_final_phase_end
 from tts_client import TTSClient, TTSError, TTSUnavailable
 
 
@@ -465,6 +465,8 @@ class Controller:
             elif kind == "missed_turn" and mode != "phases":
                 self.pending_alert = ev[1]
                 self.emit("alert", {"key": ev[1], "text": f"{turn_label(ev[1])} passé sans capture"})
+            elif kind == "phase_ended" and is_final_phase_end(ev[1], ev[2], self.tracker.seq):
+                self.emit("finish_suggest", {"round": ev[1][0]})
 
     # -------------------------------------------------------------- capture
     def capture(self, kind="manual", intent="", note="", turn_key=None, silent=False, photo=None,

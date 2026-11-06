@@ -217,7 +217,8 @@ class Overlay:
         """Résume l'état en une couleur : vert = connecté sans souci, ambre = quelque chose à voir, gris = invité."""
         if hasattr(self, "alert") and self.alert.winfo_exists() and self.alert.winfo_ismapped():
             return AMBER, True
-        if getattr(self, "_update_info", None) or getattr(self, "_unfinished_info", None) or getattr(self, "_layout_info", None):
+        if getattr(self, "_update_info", None) or getattr(self, "_unfinished_info", None) \
+           or getattr(self, "_layout_info", None) or getattr(self, "_finish_pending", False):
             return AMBER, True
         if getattr(self, "mode", None) == "host":
             return GREEN, False
@@ -509,6 +510,13 @@ class Overlay:
         ar.pack(anchor="w", pady=(6, 0))
         self._btn(ar, "Rattraper", self._catch_up, kind="primary").pack(side="left")
         self._btn(ar, "Ignorer", self._dismiss).pack(side="left", padx=6)
+        self.alert2 = tk.Frame(self.shell, bg=ALERT, padx=10, pady=6, highlightthickness=1, highlightbackground=AMBER)
+        self.alert2_lbl = tk.Label(self.alert2, text="", bg=ALERT, fg=INK, font=FONT_B, wraplength=280, justify="left")
+        self.alert2_lbl.pack(anchor="w")
+        ar2 = tk.Frame(self.alert2, bg=ALERT)
+        ar2.pack(anchor="w", pady=(6, 0))
+        self._btn(ar2, "Terminer", self._finish, kind="primary").pack(side="left")
+        self._btn(ar2, "Pas encore", self._dismiss_finish).pack(side="left", padx=6)
         self.alert_anchor = tk.Frame(self.shell, bg=PANEL)
         self.alert_anchor.pack(fill="x")
 
@@ -646,6 +654,13 @@ class Overlay:
 
     def _dismiss(self):
         self.ctl.dismiss_alert()
+
+    def _dismiss_finish(self):
+        self._finish_pending = False
+        if hasattr(self, "alert2") and self.alert2.winfo_exists():
+            self.alert2.pack_forget()
+        self._update_badge()
+        self._relayout()
 
     def _open_recap(self):
         if self.ctl.session:
@@ -968,6 +983,13 @@ class Overlay:
             self._relayout()
         elif ev == "alert_clear" and hasattr(self, "alert") and self.alert.winfo_exists():
             self.alert.pack_forget()
+            self._update_badge()
+            self._relayout()
+        elif ev == "finish_suggest" and hasattr(self, "alert2"):
+            self._finish_pending = True
+            self.alert2_lbl.config(text=f"⚠  Le round {p['round']} semble terminé. Terminer la partie ?")
+            self.alert2.pack(fill="x", padx=8, pady=(6, 6), before=self.alert_anchor)
+            beep()
             self._update_badge()
             self._relayout()
         elif ev == "captured":
