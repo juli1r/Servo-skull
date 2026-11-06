@@ -27,6 +27,14 @@ COLOR_FR = {"Red": "Rouge", "Blue": "Bleu"}
 OTHER = {"Red": "Blue", "Blue": "Red"}
 
 
+def is_final_phase_end(key: tuple | None, phase_name: str, seq: int) -> bool:
+    """Vrai à la fin de la phase de Combat (dernière phase) du 2e tour (seq pair = le round a
+    été joué par les deux camps) d'un round >= 5 — les missions LCT se jouent sur 5 rounds
+    (cf. score_summary, qui plafonne aussi à 5). Signal volontairement conservateur : pas de
+    bannière si la condition n'est pas clairement remplie."""
+    return bool(key) and key[0] >= 5 and phase_name == PHASE_ORDER[-1] and seq % 2 == 0
+
+
 def strip_tags(s: str) -> str:
     return COLOR_TAG.sub("", s or "").strip()
 
@@ -332,9 +340,13 @@ class TurnTracker:
         if st.get("inGame") and not p.get("inGame"):
             ev.append(("game_started", nk))
         same_turn = pk == nk
+        # le tour qui vient de se terminer (pk) garde le seq d'avant l'avance si elle a eu lieu :
+        # self.seq a déjà été incrémenté par _advance() ci-dessus quand le tour a changé.
+        seq_pk = self.seq if same_turn else self.seq - 1
+        seq_nk = self.seq
         # fin de mouvement : la phase quitte 2 (Movement), ou le tour passe pendant le mouvement
         if p.get("inGame") and p.get("phase") and (not same_turn or (st.get("phase") or 0) != p.get("phase") or not st.get("inGame")):
-            ev.append(("phase_ended", pk, p.get("phaseName") or ""))
+            ev.append(("phase_ended", pk, p.get("phaseName") or "", seq_pk))
             if p.get("phase") == 2:
                 ev.append(("movement_ended", pk))
             # phases passées trop vite pour être vues entre deux lectures : on les ajoute, dans l'ordre, pour que le récap ait toujours les 5 phases
@@ -342,12 +354,12 @@ class TurnTracker:
                 pp, np_ = int(p.get("phase") or 0), int(st.get("phase") or 0)
                 if pk and nk and 1 <= pp <= 5:
                     if not st.get("inGame"):   # fin de partie : les phases restantes du dernier tour sont closes d'office
-                        ev += [("phase_ended", pk, PHASE_ORDER[i - 1]) for i in range(pp + 1, 6)]
+                        ev += [("phase_ended", pk, PHASE_ORDER[i - 1], seq_pk) for i in range(pp + 1, 6)]
                     elif same_turn and np_ > pp + 1:
-                        ev += [("phase_ended", pk, PHASE_ORDER[i - 1]) for i in range(pp + 1, min(np_, 6))]
+                        ev += [("phase_ended", pk, PHASE_ORDER[i - 1], seq_pk) for i in range(pp + 1, min(np_, 6))]
                     elif not same_turn:
-                        ev += [("phase_ended", pk, PHASE_ORDER[i - 1]) for i in range(pp + 1, 6)]
-                        ev += [("phase_ended", nk, PHASE_ORDER[i - 1]) for i in range(1, min(np_, 6))]
+                        ev += [("phase_ended", pk, PHASE_ORDER[i - 1], seq_pk) for i in range(pp + 1, 6)]
+                        ev += [("phase_ended", nk, PHASE_ORDER[i - 1], seq_nk) for i in range(1, min(np_, 6))]
             except (TypeError, ValueError):
                 pass
         if pk and nk and not same_turn:
@@ -481,6 +493,30 @@ class Session:
             meta["screenshot"] = f"captures/{dest.name}"
         meta["label"] = label or self._label(meta)
         self.game["captures"].append(meta)
+        self._save_game()
+        return meta
+
+    def remove_last_capture(self) -> dict | None:
+        """Annule la dernière capture : retire sa métadonnée et ses fichiers (data/screenshot)
+        sur disque. Les captures précédentes ne sont jamais touchées."""
+        if not self.game["captures"]:
+            return None
+        meta = self.game["captures"].pop()
+        for rel in (meta.get("data"), meta.get("screenshot")):
+            if rel:
+                p = self.dir / rel
+                if p.exists():
+                    p.unlink()
+        self._save_game()
+        return meta
+
+    def flag_last_capture(self) -> dict | None:
+        """Épingle un marqueur « à vérifier » sur la dernière capture, sans texte — distinct
+        de la note libre. Peut être posé plusieurs fois (chaque pose est indépendante)."""
+        if not self.game["captures"]:
+            return None
+        meta = self.game["captures"][-1]
+        meta["flagged"] = True
         self._save_game()
         return meta
 

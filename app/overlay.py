@@ -217,7 +217,8 @@ class Overlay:
         """Résume l'état en une couleur : vert = connecté sans souci, ambre = quelque chose à voir, gris = invité."""
         if hasattr(self, "alert") and self.alert.winfo_exists() and self.alert.winfo_ismapped():
             return AMBER, True
-        if getattr(self, "_update_info", None) or getattr(self, "_unfinished_info", None) or getattr(self, "_layout_info", None):
+        if getattr(self, "_update_info", None) or getattr(self, "_unfinished_info", None) \
+           or getattr(self, "_layout_info", None) or getattr(self, "_finish_pending", False):
             return AMBER, True
         if getattr(self, "mode", None) == "host":
             return GREEN, False
@@ -462,6 +463,7 @@ class Overlay:
         self._clear()
         me = self.ctl.session.my_color
         self.mode = mode
+        self._finish_pending = False
         self.badge = tk.Label(self.root, bg=self._TKEY, bd=0, highlightthickness=0, cursor="hand2")
         self.badge.pack(anchor="w")
         self._make_draggable(self.badge, on_click=self._toggle_shell)
@@ -509,6 +511,13 @@ class Overlay:
         ar.pack(anchor="w", pady=(6, 0))
         self._btn(ar, "Rattraper", self._catch_up, kind="primary").pack(side="left")
         self._btn(ar, "Ignorer", self._dismiss).pack(side="left", padx=6)
+        self.alert2 = tk.Frame(self.shell, bg=ALERT, padx=10, pady=6, highlightthickness=1, highlightbackground=AMBER)
+        self.alert2_lbl = tk.Label(self.alert2, text="", bg=ALERT, fg=INK, font=FONT_B, wraplength=280, justify="left")
+        self.alert2_lbl.pack(anchor="w")
+        ar2 = tk.Frame(self.alert2, bg=ALERT)
+        ar2.pack(anchor="w", pady=(6, 0))
+        self._btn(ar2, "Terminer", self._finish, kind="primary").pack(side="left")
+        self._btn(ar2, "Pas encore", self._dismiss_finish).pack(side="left", padx=6)
         self.alert_anchor = tk.Frame(self.shell, bg=PANEL)
         self.alert_anchor.pack(fill="x")
 
@@ -531,10 +540,15 @@ class Overlay:
         hk = self.cfg.get("hotkey", "f8").upper()
         self.b_cap = self._btn(f, f"Capturer avec cette note   [{hk}]", self._capture, kind="primary")
         self.b_cap.pack(fill="x", pady=(10, 4), ipady=3)
+        n0 = len(self.ctl.session.game["captures"]) if self.ctl.session else 0
+        self.b_undo = self._btn(f, "↩ Annuler la dernière capture", self._undo_last_capture)
+        self.b_undo.pack(fill="x", pady=(0, 4))
+        self.b_undo.config(state="normal" if n0 else "disabled")
         # réglages (capture d'écran, fichier anonyme, envoi) : réglés une fois, pas à revoir à chaque partie
         self.v_photo = tk.BooleanVar(value=bool(self.cfg.get("photo_on_capture", False)))
         self.v_contrib = tk.BooleanVar(value=self.cfg.get("contribution") == "oui")
         self.v_envoi = tk.BooleanVar(value=self.cfg.get("envoi") == "oui")
+        self.v_toast = tk.BooleanVar(value=bool(self.cfg.get("toast_on_capture", False)))
         tk.Frame(self.shell, bg=BORDER, height=1).pack(fill="x")
         bot = tk.Frame(self.shell, bg=PANEL, padx=10, pady=7)
         bot.pack(fill="x")
@@ -548,6 +562,9 @@ class Overlay:
             self._btn(bot, "Vue", self._camera_dialog).pack(side="left", padx=(4, 0))
             self._btn(bot, "Diag", self._diagnose).pack(side="left", padx=(4, 0))
         self._btn(bot, "Restaurer", self._restore_dialog).pack(side="left", padx=(4, 0))
+        self._btn(bot, "⇄ Rôle", self._toggle_mode).pack(side="left", padx=(4, 0))
+        hk_flag = self.cfg.get("flag_hotkey", "f9").upper()
+        self._btn(bot, f"🚩 [{hk_flag}]", self._flag_last_capture).pack(side="left", padx=(4, 0))
         gear = self._btn(bot, "⚙", lambda: self._open_settings_menu(gear), font=(FONT_H[0], 13))
         gear.pack(side="left", padx=(4, 0))
         self._btn(bot, "Terminer", self._finish, kind="danger").pack(side="right")
@@ -578,7 +595,7 @@ class Overlay:
         """Réglages (capture d'écran, fichier anonyme, envoi) : dans un menu à part, pas affichés en
         permanence — on les règle une fois, pas besoin de les revoir à chaque partie."""
         def _toggle(key, var, on="oui", off="non"):
-            self.cfg[key] = (on if var.get() else off) if key != "photo_on_capture" else var.get()
+            self.cfg[key] = (on if var.get() else off) if key not in ("photo_on_capture", "toast_on_capture") else var.get()
             self.save_cfg(self.cfg)
         m = tk.Menu(self.root, tearoff=0, bg=PANEL, fg=INK, activebackground=RAISED,
                    activeforeground=INK, selectcolor=INK, bd=0, relief="flat")
@@ -587,6 +604,8 @@ class Overlay:
                               command=lambda: _toggle("photo_on_capture", self.v_photo))
         m.add_checkbutton(label="Fichier anonyme pour les stats (rien n'est envoyé)", variable=self.v_contrib,
                           command=lambda: _toggle("contribution", self.v_contrib))
+        m.add_checkbutton(label="Notification Windows à chaque capture", variable=self.v_toast,
+                          command=lambda: _toggle("toast_on_capture", self.v_toast))
         if upload.settings(self.cfg):
             m.add_checkbutton(label="Envoyer ce fichier anonyme à la fin de chaque partie", variable=self.v_envoi,
                               command=lambda: _toggle("envoi", self.v_envoi))
@@ -619,12 +638,39 @@ class Overlay:
         note = self._texts()
         self._run(self.ctl.capture, "manual", "", note)
 
+    def _undo_last_capture(self):
+        if not self.ctl.session or not self.ctl.session.game["captures"]:
+            return
+        meta = self.ctl.undo_last_capture()
+        if not meta:
+            return
+        n = len(self.ctl.session.game["captures"])
+        if hasattr(self, "lbl_count") and self.lbl_count.winfo_exists():
+            self.lbl_count.config(text=f"{n} capture" + ("" if n == 1 else "s"))
+        if hasattr(self, "b_undo") and self.b_undo.winfo_exists():
+            self.b_undo.config(state="normal" if n else "disabled")
+        self._status(f"↩ Capture annulée : {meta['label']}", AMBER)
+
+    def _flag_last_capture(self):
+        if not self.ctl.session or not self.ctl.session.game["captures"]:
+            return
+        meta = self.ctl.flag_last_capture()
+        if meta:
+            self._status(f"🚩 Point à vérifier posé sur : {meta['label']}", AMBER)
+
     def _catch_up(self):
         note = self._texts()
         self._run(self.ctl.catch_up, "", note)
 
     def _dismiss(self):
         self.ctl.dismiss_alert()
+
+    def _dismiss_finish(self):
+        self._finish_pending = False
+        if hasattr(self, "alert2") and self.alert2.winfo_exists():
+            self.alert2.pack_forget()
+        self._update_badge()
+        self._relayout()
 
     def _open_recap(self):
         if self.ctl.session:
@@ -655,6 +701,24 @@ class Overlay:
         if hasattr(self, "b_live") and self.b_live.winfo_exists():
             self.b_live.config(text="Live activé — lien copié")
         messagebox.showinfo("Partage live activé", f"Lien copié dans le presse-papier :\n{url}", parent=self.root)
+
+    def _toggle_mode(self):
+        if not self.ctl.session:
+            return
+        target = "invité" if self.mode == "host" else "hôte"
+        if not messagebox.askyesno(
+            "Basculer de rôle",
+            f"Passer en mode {target} ? Seules les captures à venir seront concernées — "
+            "l'historique déjà enregistré ne change pas.", parent=self.root):
+            return
+        new_mode = self.ctl.toggle_mode()
+        shell_was_open = self._shell_open
+        n = len(self.ctl.session.game["captures"])
+        self._build_main(new_mode)
+        if hasattr(self, "lbl_count") and self.lbl_count.winfo_exists():
+            self.lbl_count.config(text=f"{n} capture" + ("" if n == 1 else "s"))
+        if shell_was_open:
+            self._toggle_shell()
 
     def _finish(self):
         if not messagebox.askyesno("Terminer la partie", "Terminer cette partie et ouvrir le récap ?", parent=self.root):
@@ -931,10 +995,19 @@ class Overlay:
             self.alert.pack_forget()
             self._update_badge()
             self._relayout()
+        elif ev == "finish_suggest" and hasattr(self, "alert2"):
+            self._finish_pending = True
+            self.alert2_lbl.config(text=f"⚠  Le round {p['round']} semble terminé. Terminer la partie ?")
+            self.alert2.pack(fill="x", padx=8, pady=(6, 6), before=self.alert_anchor)
+            beep()
+            self._update_badge()
+            self._relayout()
         elif ev == "captured":
             if hasattr(self, "lbl_count") and self.lbl_count.winfo_exists() and self.ctl.session:
                 n = len(self.ctl.session.game["captures"])
                 self.lbl_count.config(text=f"{n} capture" + ("" if n == 1 else "s"))
+                if hasattr(self, "b_undo") and self.b_undo.winfo_exists():
+                    self.b_undo.config(state="normal")
             if p["kind"] in ("manual", "catchup"):
                 self._status(f"✓ Capturé : {p['label']}", "#8fd18f")
             else:
@@ -952,21 +1025,16 @@ class Overlay:
             self._status("⚠ TTS ne répond plus (partie fermée ?). Les captures reprennent dès qu'il répond.", AMBER)
         elif ev == "hotkey":
             self._capture()
+        elif ev == "flag_hotkey":
+            self._flag_last_capture()
         elif ev == "ask_send":
             self._ask_send(p["dir"])
 
     # -------------------------------------------------------------- divers
-    def _install_hotkey(self):
-        """Raccourci global via RegisterHotKey (Windows) : aucun crochet clavier, aucun coût
-        pour les autres programmes. L'ancien crochet (pynput) faisait passer chaque touche
-        et chaque mouvement de TTS par Python."""
-        if sys.platform != "win32":
-            return
-        import ctypes
-        from ctypes import wintypes
-        key = self.cfg.get("hotkey", "f8").lower().replace(" ", "")
+    @staticmethod
+    def _parse_hotkey(spec: str):
         mods, vk = 0x4000, None  # MOD_NOREPEAT
-        for part in key.split("+"):
+        for part in spec.lower().replace(" ", "").split("+"):
             if part in ("ctrl", "control"):
                 mods |= 0x2
             elif part == "alt":
@@ -979,20 +1047,44 @@ class Overlay:
                 vk = 0x70 + int(part[1:]) - 1
             elif len(part) == 1:
                 vk = ord(part.upper())
-        if vk is None:
+        return mods, vk
+
+    def _install_hotkey(self):
+        """Raccourcis globaux via RegisterHotKey (Windows) : aucun crochet clavier, aucun coût
+        pour les autres programmes. L'ancien crochet (pynput) faisait passer chaque touche
+        et chaque mouvement de TTS par Python."""
+        if sys.platform != "win32":
+            return
+        import ctypes
+        from ctypes import wintypes
+        bindings = []  # (id, mods, vk, label, event)
+        for hk_id, cfg_key, default, ev in ((1, "hotkey", "f8", "hotkey"),
+                                             (2, "flag_hotkey", "f9", "flag_hotkey")):
+            spec = self.cfg.get(cfg_key, default)
+            mods, vk = self._parse_hotkey(spec)
+            if vk is not None:
+                bindings.append((hk_id, mods, vk, spec.upper(), cfg_key, ev))
+        if not bindings:
             return
         user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
 
         def loop():
             self._hotkey_tid = kernel32.GetCurrentThreadId()
-            if not user32.RegisterHotKey(None, 1, mods, vk):
-                self.emit("error", f"Raccourci {key.upper()} déjà pris par un autre programme : change « hotkey » dans config.json.")
+            registered = {}
+            for hk_id, mods, vk, label, cfg_key, ev in bindings:
+                if user32.RegisterHotKey(None, hk_id, mods, vk):
+                    registered[hk_id] = ev
+                else:
+                    self.emit("error", f"Raccourci {label} déjà pris par un autre programme : "
+                                       f"change la clé \"{cfg_key}\" dans config.json.")
+            if not registered:
                 return
             msg = wintypes.MSG()
             while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
-                if msg.message == 0x0312:  # WM_HOTKEY
-                    self.emit("hotkey")
-            user32.UnregisterHotKey(None, 1)
+                if msg.message == 0x0312 and msg.wParam in registered:  # WM_HOTKEY
+                    self.emit(registered[msg.wParam])
+            for hk_id in registered:
+                user32.UnregisterHotKey(None, hk_id)
         threading.Thread(target=loop, daemon=True).start()
 
     def quit(self):
