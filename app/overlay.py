@@ -539,6 +539,7 @@ class Overlay:
         self.v_photo = tk.BooleanVar(value=bool(self.cfg.get("photo_on_capture", False)))
         self.v_contrib = tk.BooleanVar(value=self.cfg.get("contribution") == "oui")
         self.v_envoi = tk.BooleanVar(value=self.cfg.get("envoi") == "oui")
+        self.v_toast = tk.BooleanVar(value=bool(self.cfg.get("toast_on_capture", False)))
         tk.Frame(self.shell, bg=BORDER, height=1).pack(fill="x")
         bot = tk.Frame(self.shell, bg=PANEL, padx=10, pady=7)
         bot.pack(fill="x")
@@ -582,7 +583,7 @@ class Overlay:
         """Réglages (capture d'écran, fichier anonyme, envoi) : dans un menu à part, pas affichés en
         permanence — on les règle une fois, pas besoin de les revoir à chaque partie."""
         def _toggle(key, var, on="oui", off="non"):
-            self.cfg[key] = (on if var.get() else off) if key != "photo_on_capture" else var.get()
+            self.cfg[key] = (on if var.get() else off) if key not in ("photo_on_capture", "toast_on_capture") else var.get()
             self.save_cfg(self.cfg)
         m = tk.Menu(self.root, tearoff=0, bg=PANEL, fg=INK, activebackground=RAISED,
                    activeforeground=INK, selectcolor=INK, bd=0, relief="flat")
@@ -591,6 +592,8 @@ class Overlay:
                               command=lambda: _toggle("photo_on_capture", self.v_photo))
         m.add_checkbutton(label="Fichier anonyme pour les stats (rien n'est envoyé)", variable=self.v_contrib,
                           command=lambda: _toggle("contribution", self.v_contrib))
+        m.add_checkbutton(label="Notification Windows à chaque capture", variable=self.v_toast,
+                          command=lambda: _toggle("toast_on_capture", self.v_toast))
         if upload.settings(self.cfg):
             m.add_checkbutton(label="Envoyer ce fichier anonyme à la fin de chaque partie", variable=self.v_envoi,
                               command=lambda: _toggle("envoi", self.v_envoi))

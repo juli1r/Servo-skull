@@ -516,6 +516,11 @@ class Controller:
             if self.live_code:
                 threading.Thread(target=live_share.push, args=(self.session, self.cfg, self.live_code),
                                  daemon=True).start()
+            if self.cfg.get("toast_on_capture", False):
+                try:
+                    toast.show("Servo-Skull", _toast_text(meta))
+                except Exception:
+                    pass
             self.emit("captured", meta)
             return meta
 
