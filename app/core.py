@@ -21,7 +21,7 @@ PHASE_FR = {
     "Command": "Commandement", "Movement": "Mouvement", "Shooting": "Tir",
     "Charge": "Charge", "Fight": "Combat",
 }
-VERSION = "26.11.05"  # affichée dans l'overlay et le journal : permet de savoir quelle version tourne
+VERSION = "26.11.06"  # affichée dans l'overlay et le journal : permet de savoir quelle version tourne
 PHASE_ORDER = ["Command", "Movement", "Shooting", "Charge", "Fight"]  # numéro de phase dans TTS = position + 1
 COLOR_FR = {"Red": "Rouge", "Blue": "Bleu"}
 OTHER = {"Red": "Blue", "Blue": "Red"}
