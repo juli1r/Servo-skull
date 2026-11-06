@@ -27,6 +27,14 @@ COLOR_FR = {"Red": "Rouge", "Blue": "Bleu"}
 OTHER = {"Red": "Blue", "Blue": "Red"}
 
 
+def is_final_phase_end(key: tuple | None, phase_name: str, seq: int) -> bool:
+    """Vrai à la fin de la phase de Combat (dernière phase) du 2e tour (seq pair = le round a
+    été joué par les deux camps) d'un round >= 5 — les missions LCT se jouent sur 5 rounds
+    (cf. score_summary, qui plafonne aussi à 5). Signal volontairement conservateur : pas de
+    bannière si la condition n'est pas clairement remplie."""
+    return bool(key) and key[0] >= 5 and phase_name == PHASE_ORDER[-1] and seq % 2 == 0
+
+
 def strip_tags(s: str) -> str:
     return COLOR_TAG.sub("", s or "").strip()
 
