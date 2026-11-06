@@ -40,6 +40,7 @@ class Controller:
         self.tracker: TurnTracker | None = None
         self.state: dict | None = None
         self.mode = "unknown"  # host / guest
+        self._manual_role_override = False  # bloque _promote_to_host après un toggle_mode manuel
         self.live_code: str | None = None  # non None = partage live actif pour cette partie (voir start_live)
         self._last_snap = None
         self.pending_alert = None
@@ -89,6 +90,7 @@ class Controller:
         mode = self.probe()
         players = (self.state or {}).get("players") or {}
         self._last_snap = None
+        self._manual_role_override = False  # nouvelle partie : l'auto-détection reprend la main
         self.live_code = None  # le partage live ne survit pas d'une partie à l'autre, même reprise
         resumed = self._find_resumable(my_color, mode, players)
         self.tracker = TurnTracker(my_color, self.cfg.get("alert_scope", "all"))
@@ -354,7 +356,7 @@ class Controller:
                 for k in ("vp", "cp", "players", "sheet", "scoresheetDesc", "score"):
                     if k in self.state and k not in st:
                         st[k] = self.state[k]
-            if self.session.mode != "host":
+            if self.session.mode != "host" and not self._manual_role_override:
                 self._promote_to_host(st)
             try:
                 self.tick(st)
@@ -377,7 +379,7 @@ class Controller:
         try:
             st = self._install_watch()
             installs = 1
-            if self.session and self.session.mode != "host":
+            if self.session and self.session.mode != "host" and not self._manual_role_override:
                 self._promote_to_host(st)
             self.tick(st)
         except TTSError:
@@ -400,7 +402,7 @@ class Controller:
                 installs += 1
             except TTSError:
                 continue
-            if self.session.mode != "host":
+            if self.session.mode != "host" and not self._manual_role_override:
                 self._promote_to_host(st)
             self.tick(st)
 
@@ -430,13 +432,15 @@ class Controller:
     def toggle_mode(self) -> str:
         """Bouton « basculer hôte/invité » : corrige une détection automatique erronée sans
         relancer la partie. N'affecte jamais les captures déjà enregistrées — seulement
-        l'étiquetage des captures à venir."""
+        l'étiquetage des captures à venir. Correction manuelle explicite : bloque toute
+        auto-reversion par le veilleur jusqu'à la prochaine partie (start_session)."""
         if not self.session:
             return self.mode
         new_mode = "guest" if self.mode == "host" else "host"
         self.mode = self.session.mode = new_mode
         self.session.game["mode"] = new_mode
         self.session._save_game()
+        self._manual_role_override = True
         return new_mode
 
     def tick(self, st: dict):
