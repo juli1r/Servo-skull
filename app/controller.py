@@ -427,6 +427,18 @@ class Controller:
         self.tick(st)
         return "host"
 
+    def toggle_mode(self) -> str:
+        """Bouton « basculer hôte/invité » : corrige une détection automatique erronée sans
+        relancer la partie. N'affecte jamais les captures déjà enregistrées — seulement
+        l'étiquetage des captures à venir."""
+        if not self.session:
+            return self.mode
+        new_mode = "guest" if self.mode == "host" else "host"
+        self.mode = self.session.mode = new_mode
+        self.session.game["mode"] = new_mode
+        self.session._save_game()
+        return new_mode
+
     def tick(self, st: dict):
         """Traite une lecture (appelé par la boucle, ou directement par les tests)."""
         st = normalize_state(st)
