@@ -509,6 +509,19 @@ class Controller:
             self.emit("captured", meta)
             return meta
 
+    def undo_last_capture(self) -> dict | None:
+        """Annule la dernière capture de la partie en cours (bouton overlay). Idempotent :
+        sans capture à annuler, ne fait rien."""
+        if not self.session:
+            return None
+        meta = self.session.remove_last_capture()
+        if meta:
+            recap.build(self.session)
+            if self.live_code:
+                threading.Thread(target=live_share.push, args=(self.session, self.cfg, self.live_code),
+                                 daemon=True).start()
+        return meta
+
     def _check_layout(self):
         """Prévient en tout début de partie si les décors ne collent pas au layout officiel de
         l'Event Companion (comparaison faite à chaque capture, jamais remontée sinon)."""

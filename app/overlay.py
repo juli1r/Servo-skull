@@ -531,6 +531,10 @@ class Overlay:
         hk = self.cfg.get("hotkey", "f8").upper()
         self.b_cap = self._btn(f, f"Capturer avec cette note   [{hk}]", self._capture, kind="primary")
         self.b_cap.pack(fill="x", pady=(10, 4), ipady=3)
+        n0 = len(self.ctl.session.game["captures"]) if self.ctl.session else 0
+        self.b_undo = self._btn(f, "↩ Annuler la dernière capture", self._undo_last_capture)
+        self.b_undo.pack(fill="x", pady=(0, 4))
+        self.b_undo.config(state="normal" if n0 else "disabled")
         # réglages (capture d'écran, fichier anonyme, envoi) : réglés une fois, pas à revoir à chaque partie
         self.v_photo = tk.BooleanVar(value=bool(self.cfg.get("photo_on_capture", False)))
         self.v_contrib = tk.BooleanVar(value=self.cfg.get("contribution") == "oui")
@@ -618,6 +622,19 @@ class Overlay:
             return
         note = self._texts()
         self._run(self.ctl.capture, "manual", "", note)
+
+    def _undo_last_capture(self):
+        if not self.ctl.session or not self.ctl.session.game["captures"]:
+            return
+        meta = self.ctl.undo_last_capture()
+        if not meta:
+            return
+        n = len(self.ctl.session.game["captures"])
+        if hasattr(self, "lbl_count") and self.lbl_count.winfo_exists():
+            self.lbl_count.config(text=f"{n} capture" + ("" if n == 1 else "s"))
+        if hasattr(self, "b_undo") and self.b_undo.winfo_exists():
+            self.b_undo.config(state="normal" if n else "disabled")
+        self._status(f"↩ Capture annulée : {meta['label']}", AMBER)
 
     def _catch_up(self):
         note = self._texts()
@@ -935,6 +952,8 @@ class Overlay:
             if hasattr(self, "lbl_count") and self.lbl_count.winfo_exists() and self.ctl.session:
                 n = len(self.ctl.session.game["captures"])
                 self.lbl_count.config(text=f"{n} capture" + ("" if n == 1 else "s"))
+                if hasattr(self, "b_undo") and self.b_undo.winfo_exists():
+                    self.b_undo.config(state="normal")
             if p["kind"] in ("manual", "catchup"):
                 self._status(f"✓ Capturé : {p['label']}", "#8fd18f")
             else:
