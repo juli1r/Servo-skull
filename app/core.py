@@ -506,6 +506,16 @@ class Session:
         self._save_game()
         return meta
 
+    def flag_last_capture(self) -> dict | None:
+        """Épingle un marqueur « à vérifier » sur la dernière capture, sans texte — distinct
+        de la note libre. Peut être posé plusieurs fois (chaque pose est indépendante)."""
+        if not self.game["captures"]:
+            return None
+        meta = self.game["captures"][-1]
+        meta["flagged"] = True
+        self._save_game()
+        return meta
+
     def _label(self, m: dict) -> str:
         parts = []
         if m.get("round") is not None:
