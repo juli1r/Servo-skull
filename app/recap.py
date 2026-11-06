@@ -387,8 +387,17 @@ def _official(terrain: list, cache: dict) -> None:
                 if name_letter in shape_by_letter:
                     t.append(shape_by_letter[name_letter])  # vraie forme recalée (t[10])
             elif len(t) == 9:
-                _, _, poly = min(cents, key=lambda c: math.hypot(t[0] - c[0], t[1] - c[1]))
-                t.append([poly])  # décor « light » sans lettre : empreinte la plus proche
+                # décor « light » sans lettre : toutes les empreintes à portée (demi-diagonale de
+                # la pièce) plutôt que la seule plus proche — une pièce posée à cheval sur deux
+                # empreintes voisines (connecteur entre deux ruines) ne doit pas être amputée de la
+                # partie qui déborde légitimement sur l'empreinte d'à côté. Filet de sécurité : si
+                # aucune empreinte n'est à portée, on garde la plus proche (jamais 0 empreinte).
+                reach = math.hypot(t[3], t[4]) / 2
+                near = [poly for _, _, poly in cents if _dist_to_poly(t[0], t[1], poly) <= reach]
+                if not near:
+                    _, _, poly = min(cents, key=lambda c: math.hypot(t[0] - c[0], t[1] - c[1]))
+                    near = [poly]
+                t.append(near)
 
 
 def _in_poly(x: float, z: float, poly: list) -> bool:
