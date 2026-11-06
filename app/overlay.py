@@ -562,6 +562,8 @@ class Overlay:
             self._btn(bot, "Diag", self._diagnose).pack(side="left", padx=(4, 0))
         self._btn(bot, "Restaurer", self._restore_dialog).pack(side="left", padx=(4, 0))
         self._btn(bot, "⇄ Rôle", self._toggle_mode).pack(side="left", padx=(4, 0))
+        hk_flag = self.cfg.get("flag_hotkey", "f9").upper()
+        self._btn(bot, f"🚩 [{hk_flag}]", self._flag_last_capture).pack(side="left", padx=(4, 0))
         gear = self._btn(bot, "⚙", lambda: self._open_settings_menu(gear), font=(FONT_H[0], 13))
         gear.pack(side="left", padx=(4, 0))
         self._btn(bot, "Terminer", self._finish, kind="danger").pack(side="right")
@@ -647,6 +649,13 @@ class Overlay:
         if hasattr(self, "b_undo") and self.b_undo.winfo_exists():
             self.b_undo.config(state="normal" if n else "disabled")
         self._status(f"↩ Capture annulée : {meta['label']}", AMBER)
+
+    def _flag_last_capture(self):
+        if not self.ctl.session or not self.ctl.session.game["captures"]:
+            return
+        meta = self.ctl.flag_last_capture()
+        if meta:
+            self._status(f"🚩 Point à vérifier posé sur : {meta['label']}", AMBER)
 
     def _catch_up(self):
         note = self._texts()
@@ -1015,21 +1024,16 @@ class Overlay:
             self._status("⚠ TTS ne répond plus (partie fermée ?). Les captures reprennent dès qu'il répond.", AMBER)
         elif ev == "hotkey":
             self._capture()
+        elif ev == "flag_hotkey":
+            self._flag_last_capture()
         elif ev == "ask_send":
             self._ask_send(p["dir"])
 
     # -------------------------------------------------------------- divers
-    def _install_hotkey(self):
-        """Raccourci global via RegisterHotKey (Windows) : aucun crochet clavier, aucun coût
-        pour les autres programmes. L'ancien crochet (pynput) faisait passer chaque touche
-        et chaque mouvement de TTS par Python."""
-        if sys.platform != "win32":
-            return
-        import ctypes
-        from ctypes import wintypes
-        key = self.cfg.get("hotkey", "f8").lower().replace(" ", "")
+    @staticmethod
+    def _parse_hotkey(spec: str):
         mods, vk = 0x4000, None  # MOD_NOREPEAT
-        for part in key.split("+"):
+        for part in spec.lower().replace(" ", "").split("+"):
             if part in ("ctrl", "control"):
                 mods |= 0x2
             elif part == "alt":
@@ -1042,20 +1046,44 @@ class Overlay:
                 vk = 0x70 + int(part[1:]) - 1
             elif len(part) == 1:
                 vk = ord(part.upper())
-        if vk is None:
+        return mods, vk
+
+    def _install_hotkey(self):
+        """Raccourcis globaux via RegisterHotKey (Windows) : aucun crochet clavier, aucun coût
+        pour les autres programmes. L'ancien crochet (pynput) faisait passer chaque touche
+        et chaque mouvement de TTS par Python."""
+        if sys.platform != "win32":
+            return
+        import ctypes
+        from ctypes import wintypes
+        bindings = []  # (id, mods, vk, label, event)
+        for hk_id, cfg_key, default, ev in ((1, "hotkey", "f8", "hotkey"),
+                                             (2, "flag_hotkey", "f9", "flag_hotkey")):
+            spec = self.cfg.get(cfg_key, default)
+            mods, vk = self._parse_hotkey(spec)
+            if vk is not None:
+                bindings.append((hk_id, mods, vk, spec.upper(), ev))
+        if not bindings:
             return
         user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
 
         def loop():
             self._hotkey_tid = kernel32.GetCurrentThreadId()
-            if not user32.RegisterHotKey(None, 1, mods, vk):
-                self.emit("error", f"Raccourci {key.upper()} déjà pris par un autre programme : change « hotkey » dans config.json.")
+            registered = {}
+            for hk_id, mods, vk, label, ev in bindings:
+                if user32.RegisterHotKey(None, hk_id, mods, vk):
+                    registered[hk_id] = ev
+                else:
+                    self.emit("error", f"Raccourci {label} déjà pris par un autre programme : "
+                                       "change-le dans config.json.")
+            if not registered:
                 return
             msg = wintypes.MSG()
             while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
-                if msg.message == 0x0312:  # WM_HOTKEY
-                    self.emit("hotkey")
-            user32.UnregisterHotKey(None, 1)
+                if msg.message == 0x0312 and msg.wParam in registered:  # WM_HOTKEY
+                    self.emit(registered[msg.wParam])
+            for hk_id in registered:
+                user32.UnregisterHotKey(None, hk_id)
         threading.Thread(target=loop, daemon=True).start()
 
     def quit(self):

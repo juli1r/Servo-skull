@@ -551,6 +551,14 @@ class Controller:
                                  daemon=True).start()
         return meta
 
+    def flag_last_capture(self) -> dict | None:
+        if not self.session:
+            return None
+        meta = self.session.flag_last_capture()
+        if meta:
+            recap.build(self.session)
+        return meta
+
     def _check_layout(self):
         """Prévient en tout début de partie si les décors ne collent pas au layout officiel de
         l'Event Companion (comparaison faite à chaque capture, jamais remontée sinon)."""
