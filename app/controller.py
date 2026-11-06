@@ -453,6 +453,12 @@ class Controller:
         for ev in events:
             kind = ev[0]
             mode = self.cfg.get("auto_capture", "phases")  # "phases", "movement" ou "off"
+            # vérifiée en premier, indépendamment du mode de capture : sinon elle ne se déclenche
+            # jamais en mode "phases" (la branche phase_ended ci-dessous l'aurait toujours interceptée).
+            if kind == "phase_ended" and is_final_phase_end(ev[1], ev[2], ev[3]) \
+               and getattr(self, "_finish_suggested_round", None) != ev[1][0]:
+                self._finish_suggested_round = ev[1][0]
+                self.emit("finish_suggest", {"round": ev[1][0]})
             if kind == "phase_ended" and mode == "phases":
                 drops, self._pending_drops = getattr(self, "_pending_drops", None), None
                 self.capture(kind="auto_phase", turn_key=ev[1], silent=True, ended_phase=ev[2], light=True,
@@ -465,8 +471,6 @@ class Controller:
             elif kind == "missed_turn" and mode != "phases":
                 self.pending_alert = ev[1]
                 self.emit("alert", {"key": ev[1], "text": f"{turn_label(ev[1])} passé sans capture"})
-            elif kind == "phase_ended" and is_final_phase_end(ev[1], ev[2], self.tracker.seq):
-                self.emit("finish_suggest", {"round": ev[1][0]})
 
     # -------------------------------------------------------------- capture
     def capture(self, kind="manual", intent="", note="", turn_key=None, silent=False, photo=None,

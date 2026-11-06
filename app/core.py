@@ -340,9 +340,13 @@ class TurnTracker:
         if st.get("inGame") and not p.get("inGame"):
             ev.append(("game_started", nk))
         same_turn = pk == nk
+        # le tour qui vient de se terminer (pk) garde le seq d'avant l'avance si elle a eu lieu :
+        # self.seq a déjà été incrémenté par _advance() ci-dessus quand le tour a changé.
+        seq_pk = self.seq if same_turn else self.seq - 1
+        seq_nk = self.seq
         # fin de mouvement : la phase quitte 2 (Movement), ou le tour passe pendant le mouvement
         if p.get("inGame") and p.get("phase") and (not same_turn or (st.get("phase") or 0) != p.get("phase") or not st.get("inGame")):
-            ev.append(("phase_ended", pk, p.get("phaseName") or ""))
+            ev.append(("phase_ended", pk, p.get("phaseName") or "", seq_pk))
             if p.get("phase") == 2:
                 ev.append(("movement_ended", pk))
             # phases passées trop vite pour être vues entre deux lectures : on les ajoute, dans l'ordre, pour que le récap ait toujours les 5 phases
@@ -350,12 +354,12 @@ class TurnTracker:
                 pp, np_ = int(p.get("phase") or 0), int(st.get("phase") or 0)
                 if pk and nk and 1 <= pp <= 5:
                     if not st.get("inGame"):   # fin de partie : les phases restantes du dernier tour sont closes d'office
-                        ev += [("phase_ended", pk, PHASE_ORDER[i - 1]) for i in range(pp + 1, 6)]
+                        ev += [("phase_ended", pk, PHASE_ORDER[i - 1], seq_pk) for i in range(pp + 1, 6)]
                     elif same_turn and np_ > pp + 1:
-                        ev += [("phase_ended", pk, PHASE_ORDER[i - 1]) for i in range(pp + 1, min(np_, 6))]
+                        ev += [("phase_ended", pk, PHASE_ORDER[i - 1], seq_pk) for i in range(pp + 1, min(np_, 6))]
                     elif not same_turn:
-                        ev += [("phase_ended", pk, PHASE_ORDER[i - 1]) for i in range(pp + 1, 6)]
-                        ev += [("phase_ended", nk, PHASE_ORDER[i - 1]) for i in range(1, min(np_, 6))]
+                        ev += [("phase_ended", pk, PHASE_ORDER[i - 1], seq_pk) for i in range(pp + 1, 6)]
+                        ev += [("phase_ended", nk, PHASE_ORDER[i - 1], seq_nk) for i in range(1, min(np_, 6))]
             except (TypeError, ValueError):
                 pass
         if pk and nk and not same_turn:
