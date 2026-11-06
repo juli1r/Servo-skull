@@ -15,3 +15,21 @@
         && request.resource.data.payload is string && request.resource.data.payload.size() < 200000;
       allow read, update, delete: if false;
     }
+
+    // --- mode live (suivre une partie en cours depuis un lien) ---
+    // Effet : n'importe quelle installation peut CRÉER/ÉCRASER l'état d'une partie en direct (le
+    // code à 8 caractères hex dans l'URL du document EST le droit d'accès, comme un lien partagé —
+    // pas d'auth). "allow get" permet de lire un document si on connaît déjà son id ; "allow list:
+    // false" empêche d'énumérer/parcourir les parties en live de tout le monde. Personne ne peut
+    // supprimer depuis l'extérieur — les documents expirent via une politique de TTL Firestore
+    // (Firebase > Firestore > TTL, champ "expireAt") à configurer une fois en console.
+    match /live_games/{code} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if code.matches('^[0-9a-f]{8}$')
+        && request.resource.data.keys().hasOnly(['schema', 'payload', 'expireAt'])
+        && request.resource.data.keys().hasAll(['schema', 'payload'])
+        && request.resource.data.schema == 1
+        && request.resource.data.payload is string && request.resource.data.payload.size() < 500000;
+      allow delete: if false;
+    }

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Servo-Skull · live</title>
+<style>
+:root{--bg0:#080b10;--bg1:#10141e;--border:#2a3348;--t1:#dde3f0;--t2:#8e95a8;--coral:#ff6b47;--cyan:#38bdf8;--amber:#fbbf24;color-scheme:dark}
+@media (prefers-color-scheme:light){:root{--bg0:#f0f2f5;--bg1:#ffffff;--border:#d4d8e0;--t1:#111827;--t2:#52586a;--coral:#e8562e;--cyan:#0c87c9;--amber:#9a6a00;color-scheme:light}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg0);color:var(--t1);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;height:100vh;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg1)}
+header b{color:var(--coral);letter-spacing:.06em}
+#status{color:var(--t2)}
+#status.live{color:var(--cyan)}
+#status.err{color:var(--amber)}
+#frame{flex:1;border:0;width:100%}
+#empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--t2);padding:24px;text-align:center}
+</style>
+</head>
+<body>
+<header><b>SERVO-SKULL · LIVE</b><span id="status">connexion…</span></header>
+<div id="empty" hidden>Lien invalide ou partie pas encore partagée.</div>
+<iframe id="frame" hidden></iframe>
+<script src="live.js"></script>
+</body>
+</html>

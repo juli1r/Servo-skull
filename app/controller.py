@@ -10,6 +10,7 @@ from pathlib import Path
 import recap
 import contribution
 import cogitator_export
+import live_share
 import upload
 import lua_scripts as L
 from core import Session, TurnTracker, normalize_state, turn_label
@@ -29,6 +30,7 @@ class Controller:
         self.tracker: TurnTracker | None = None
         self.state: dict | None = None
         self.mode = "unknown"  # host / guest
+        self.live_code: str | None = None  # non None = partage live actif pour cette partie (voir start_live)
         self._last_snap = None
         self.pending_alert = None
         self._lock = threading.Lock()  # une capture à la fois
@@ -49,6 +51,19 @@ class Controller:
             except Exception:
                 pass
 
+    def start_live(self) -> str | None:
+        """Active le partage live pour la partie en cours (bouton overlay) ; retourne le lien à
+        copier, ou None si Firestore n'est pas configuré. Idempotent : un second clic réutilise le
+        même code plutôt que d'en générer un nouveau."""
+        if not live_share.settings(self.cfg):
+            return None
+        if not self.live_code:
+            self.live_code = live_share.new_code()
+            if self.session:
+                threading.Thread(target=live_share.push, args=(self.session, self.cfg, self.live_code),
+                                 daemon=True).start()
+        return live_share.viewer_url(self.live_code)
+
     def probe(self) -> str:
         """Détermine le mode : hôte (TTS répond au Lua) ou invité."""
         try:
@@ -64,6 +79,7 @@ class Controller:
         mode = self.probe()
         players = (self.state or {}).get("players") or {}
         self._last_snap = None
+        self.live_code = None  # le partage live ne survit pas d'une partie à l'autre, même reprise
         resumed = self._find_resumable(my_color, mode, players)
         self.tracker = TurnTracker(my_color, self.cfg.get("alert_scope", "all"))
         if resumed:
@@ -487,6 +503,9 @@ class Controller:
             recap.build(self.session)
             if len(self.session.game["captures"]) == 1:
                 self._check_layout()
+            if self.live_code:
+                threading.Thread(target=live_share.push, args=(self.session, self.cfg, self.live_code),
+                                 daemon=True).start()
             self.emit("captured", meta)
             return meta
 

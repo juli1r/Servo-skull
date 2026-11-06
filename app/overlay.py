@@ -12,6 +12,7 @@ import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
+import live_share
 import self_update
 import upload
 from core import COLOR_FR, PHASE_FR, VERSION, Session, phase_label, turn_label
@@ -540,6 +541,9 @@ class Overlay:
         # texte plutôt qu'icônes : un glyphe Unicode obscur (⚕, ↺…) ne s'affiche pas pareil
         # (ou pas du tout) selon les polices installées — "Diag" se comprend toujours, pas ⚕.
         self._btn(bot, "Récap", self._open_recap).pack(side="left")
+        if live_share.settings(self.cfg):
+            self.b_live = self._btn(bot, "Partager en live", self._toggle_live)
+            self.b_live.pack(side="left", padx=(4, 0))
         if mode == "host":
             self._btn(bot, "Vue", self._camera_dialog).pack(side="left", padx=(4, 0))
             self._btn(bot, "Diag", self._diagnose).pack(side="left", padx=(4, 0))
@@ -626,6 +630,31 @@ class Overlay:
         if self.ctl.session:
             import recap
             webbrowser.open((recap.build(self.ctl.session)).resolve().as_uri())
+
+    def _toggle_live(self):
+        """Active le partage live pour CETTE partie (rien n'est envoyé avant ce clic). Un second
+        clic ne fait que réafficher/recopier le même lien — pas de « désactivation » possible côté
+        serveur (Firestore refuse la suppression depuis l'extérieur), le lien reste valable jusqu'à
+        expiration (12 h) même si plus aucune capture n'est poussée ensuite."""
+        if not self.ctl.live_code:
+            if not messagebox.askyesno(
+                "Partager en live ?",
+                "Un lien sera généré : n'importe qui avec ce lien pourra suivre le plan de table, "
+                "le score et les unités de cette partie en direct, jusqu'à 12 h après la dernière "
+                "capture. Continuer ?", parent=self.root):
+                return
+        url = self.ctl.start_live()
+        if not url:
+            messagebox.showerror("Partage live", "Partage live non configuré.", parent=self.root)
+            return
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(url)
+        except tk.TclError:
+            pass
+        if hasattr(self, "b_live") and self.b_live.winfo_exists():
+            self.b_live.config(text="Live activé — lien copié")
+        messagebox.showinfo("Partage live activé", f"Lien copié dans le presse-papier :\n{url}", parent=self.root)
 
     def _finish(self):
         if not messagebox.askyesno("Terminer la partie", "Terminer cette partie et ouvrir le récap ?", parent=self.root):
