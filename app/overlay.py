@@ -12,6 +12,7 @@ import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
+import self_update
 import upload
 from core import COLOR_FR, PHASE_FR, VERSION, Session, phase_label, turn_label
 
@@ -339,14 +340,47 @@ class Overlay:
 
     def _apply_update_banner(self):
         info = getattr(self, "_update_info", None)
-        if info and hasattr(self, "lbl_update") and self.lbl_update.winfo_exists():
-            self.lbl_update.config(text=f"↑ Servo-Skull v{info['version']} disponible — clique pour la page de téléchargement")
-            self.lbl_update.pack(fill="x")
+        if not (info and hasattr(self, "lbl_update") and self.lbl_update.winfo_exists()):
+            return
+        state = getattr(self, "_update_state", "available")
+        if state == "downloading":
+            pct = (getattr(self, "_update_progress", None) or {}).get("pct", 0)
+            txt = f"↓ Téléchargement de la mise à jour v{info['version']}… {pct}%"
+        elif state == "installing":
+            txt = f"↻ Installation de v{info['version']}… redémarrage dans un instant."
+        elif state == "error":
+            txt = f"⚠ Échec du téléchargement — clique pour la page de téléchargement de v{info['version']}."
+        elif self_update.is_frozen() and info.get("asset_url"):
+            txt = f"↑ Servo-Skull v{info['version']} disponible — clique pour installer automatiquement"
+        else:
+            txt = f"↑ Servo-Skull v{info['version']} disponible — clique pour la page de téléchargement"
+        self.lbl_update.config(text=txt)
+        self.lbl_update.pack(fill="x")
+
+    def _set_update_state(self, state: str, extra: dict):
+        self._update_state = state
+        self._update_progress = extra
+        self._apply_update_banner()
 
     def _open_update(self):
         info = getattr(self, "_update_info", None)
-        if info:
-            webbrowser.open(info["url"])
+        if not info:
+            return
+        state = getattr(self, "_update_state", "available")
+        if state in ("downloading", "installing"):
+            return  # déjà en cours
+        if not (self_update.is_frozen() and info.get("asset_url")):
+            webbrowser.open(info["url"])  # dev (sources) ou pas de zip exploitable : jamais d'auto-update
+            return
+
+        def on_status(s, extra):
+            self.root.after(0, self._set_update_state, s, extra)
+
+        def run():
+            ok = self_update.apply(info["asset_url"], info.get("asset_size"), on_status)
+            if ok:
+                self.root.after(0, self.quit)
+        threading.Thread(target=run, daemon=True).start()
 
     def _unfinished_label(self, parent, bg=BG):
         lbl = tk.Label(parent, text="", bg=bg, fg=AMBER, font=FONT, cursor="hand2",

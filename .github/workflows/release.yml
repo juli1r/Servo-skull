@@ -1,0 +1,78 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Lire VERSION (app/core.py)
+        id: version
+        shell: pwsh
+        run: |
+          $text = Get-Content app/core.py -Raw
+          if ($text -notmatch 'VERSION\s*=\s*"([^"]+)"') {
+            throw "VERSION introuvable dans app/core.py"
+          }
+          $version = $Matches[1]
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=v$version" >> $env:GITHUB_OUTPUT
+
+      - name: Release déjà publiée ? (VERSION = signal explicite)
+        id: existing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${{ steps.version.outputs.tag }}" 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Dépendances
+        if: steps.existing.outputs.exists == 'false'
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build (--onedir, comme empaqueter.bat)
+        if: steps.existing.outputs.exists == 'false'
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --onedir --windowed --name Servo-Skull --paths app `
+            --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32 `
+            --add-data "app\recap_template.html;." --add-data "app\assets;assets" --add-data "app\data;data" --icon "app\assets\servo-skull.ico" `
+            app\main.py
+          Copy-Item LISEZMOI.md dist\Servo-Skull\LISEZMOI.md
+          Copy-Item README.md dist\Servo-Skull\LISEZ-MOI-D-ABORD.md
+
+      - name: Empaqueter le zip
+        if: steps.existing.outputs.exists == 'false'
+        id: zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          $zip = "release\Servo-Skull-${{ steps.version.outputs.version }}-windows.zip"
+          Compress-Archive -Path dist\Servo-Skull -DestinationPath $zip
+          "path=$zip" >> $env:GITHUB_OUTPUT
+
+      - name: Publier la Release GitHub
+        if: steps.existing.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "${{ steps.version.outputs.tag }}"
+          "${{ steps.zip.outputs.path }}"
+          --title "Servo-Skull ${{ steps.version.outputs.version }}"
+          --generate-notes
