@@ -463,6 +463,7 @@ class Overlay:
         self._clear()
         me = self.ctl.session.my_color
         self.mode = mode
+        self._finish_pending = False
         self.badge = tk.Label(self.root, bg=self._TKEY, bd=0, highlightthickness=0, cursor="hand2")
         self.badge.pack(anchor="w")
         self._make_draggable(self.badge, on_click=self._toggle_shell)
@@ -1062,7 +1063,7 @@ class Overlay:
             spec = self.cfg.get(cfg_key, default)
             mods, vk = self._parse_hotkey(spec)
             if vk is not None:
-                bindings.append((hk_id, mods, vk, spec.upper(), ev))
+                bindings.append((hk_id, mods, vk, spec.upper(), cfg_key, ev))
         if not bindings:
             return
         user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
@@ -1070,12 +1071,12 @@ class Overlay:
         def loop():
             self._hotkey_tid = kernel32.GetCurrentThreadId()
             registered = {}
-            for hk_id, mods, vk, label, ev in bindings:
+            for hk_id, mods, vk, label, cfg_key, ev in bindings:
                 if user32.RegisterHotKey(None, hk_id, mods, vk):
                     registered[hk_id] = ev
                 else:
                     self.emit("error", f"Raccourci {label} déjà pris par un autre programme : "
-                                       "change-le dans config.json.")
+                                       f"change la clé \"{cfg_key}\" dans config.json.")
             if not registered:
                 return
             msg = wintypes.MSG()
