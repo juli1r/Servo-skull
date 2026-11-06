@@ -553,6 +553,7 @@ class Overlay:
             self._btn(bot, "Vue", self._camera_dialog).pack(side="left", padx=(4, 0))
             self._btn(bot, "Diag", self._diagnose).pack(side="left", padx=(4, 0))
         self._btn(bot, "Restaurer", self._restore_dialog).pack(side="left", padx=(4, 0))
+        self._btn(bot, "⇄ Rôle", self._toggle_mode).pack(side="left", padx=(4, 0))
         gear = self._btn(bot, "⚙", lambda: self._open_settings_menu(gear), font=(FONT_H[0], 13))
         gear.pack(side="left", padx=(4, 0))
         self._btn(bot, "Terminer", self._finish, kind="danger").pack(side="right")
@@ -675,6 +676,24 @@ class Overlay:
         if hasattr(self, "b_live") and self.b_live.winfo_exists():
             self.b_live.config(text="Live activé — lien copié")
         messagebox.showinfo("Partage live activé", f"Lien copié dans le presse-papier :\n{url}", parent=self.root)
+
+    def _toggle_mode(self):
+        if not self.ctl.session:
+            return
+        target = "invité" if self.mode == "host" else "hôte"
+        if not messagebox.askyesno(
+            "Basculer de rôle",
+            f"Passer en mode {target} ? Seules les captures à venir seront concernées — "
+            "l'historique déjà enregistré ne change pas.", parent=self.root):
+            return
+        new_mode = self.ctl.toggle_mode()
+        shell_was_open = self._shell_open
+        n = len(self.ctl.session.game["captures"])
+        self._build_main(new_mode)
+        if hasattr(self, "lbl_count") and self.lbl_count.winfo_exists():
+            self.lbl_count.config(text=f"{n} capture" + ("" if n == 1 else "s"))
+        if shell_was_open:
+            self._toggle_shell()
 
     def _finish(self):
         if not messagebox.askyesno("Terminer la partie", "Terminer cette partie et ouvrir le récap ?", parent=self.root):
