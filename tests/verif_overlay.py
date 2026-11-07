@@ -31,6 +31,8 @@ def run():
         ui.root.update()
         ui._build_main("host")
         ui.root.update()
+        ui._undo_last_capture()  # aucune capture : ne doit pas lever d'exception
+        ui.root.update()
         ui._toggle_shell()
         ui.root.update()
         ui._toggle_shell()
