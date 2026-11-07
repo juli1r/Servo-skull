@@ -11,10 +11,20 @@ import recap
 import contribution
 import cogitator_export
 import live_share
+import toast
 import upload
 import lua_scripts as L
-from core import Session, TurnTracker, normalize_state, turn_label
+from core import Session, TurnTracker, normalize_state, turn_label, is_final_phase_end
 from tts_client import TTSClient, TTSError, TTSUnavailable
+
+
+def _toast_text(meta: dict) -> str:
+    key = tuple(meta["turnKey"]) if meta.get("turnKey") else None
+    label = turn_label(key) if key else "Capture"
+    vp = meta.get("vp") or {}
+    if vp.get("Red") is not None or vp.get("Blue") is not None:
+        label += f" · {vp.get('Red', '–')}-{vp.get('Blue', '–')}"
+    return label
 
 
 class Controller:
@@ -30,6 +40,7 @@ class Controller:
         self.tracker: TurnTracker | None = None
         self.state: dict | None = None
         self.mode = "unknown"  # host / guest
+        self._manual_role_override = False  # bloque _promote_to_host après un toggle_mode manuel
         self.live_code: str | None = None  # non None = partage live actif pour cette partie (voir start_live)
         self._last_snap = None
         self.pending_alert = None
@@ -79,6 +90,7 @@ class Controller:
         mode = self.probe()
         players = (self.state or {}).get("players") or {}
         self._last_snap = None
+        self._manual_role_override = False  # nouvelle partie : l'auto-détection reprend la main
         self.live_code = None  # le partage live ne survit pas d'une partie à l'autre, même reprise
         resumed = self._find_resumable(my_color, mode, players)
         self.tracker = TurnTracker(my_color, self.cfg.get("alert_scope", "all"))
@@ -344,7 +356,7 @@ class Controller:
                 for k in ("vp", "cp", "players", "sheet", "scoresheetDesc", "score"):
                     if k in self.state and k not in st:
                         st[k] = self.state[k]
-            if self.session.mode != "host":
+            if self.session.mode != "host" and not self._manual_role_override:
                 self._promote_to_host(st)
             try:
                 self.tick(st)
@@ -367,7 +379,7 @@ class Controller:
         try:
             st = self._install_watch()
             installs = 1
-            if self.session and self.session.mode != "host":
+            if self.session and self.session.mode != "host" and not self._manual_role_override:
                 self._promote_to_host(st)
             self.tick(st)
         except TTSError:
@@ -390,7 +402,7 @@ class Controller:
                 installs += 1
             except TTSError:
                 continue
-            if self.session.mode != "host":
+            if self.session.mode != "host" and not self._manual_role_override:
                 self._promote_to_host(st)
             self.tick(st)
 
@@ -417,6 +429,20 @@ class Controller:
         self.tick(st)
         return "host"
 
+    def toggle_mode(self) -> str:
+        """Bouton « basculer hôte/invité » : corrige une détection automatique erronée sans
+        relancer la partie. N'affecte jamais les captures déjà enregistrées — seulement
+        l'étiquetage des captures à venir. Correction manuelle explicite : bloque toute
+        auto-reversion par le veilleur jusqu'à la prochaine partie (start_session)."""
+        if not self.session:
+            return self.mode
+        new_mode = "guest" if self.mode == "host" else "host"
+        self.mode = self.session.mode = new_mode
+        self.session.game["mode"] = new_mode
+        self.session._save_game()
+        self._manual_role_override = True
+        return new_mode
+
     def tick(self, st: dict):
         """Traite une lecture (appelé par la boucle, ou directement par les tests)."""
         st = normalize_state(st)
@@ -431,6 +457,12 @@ class Controller:
         for ev in events:
             kind = ev[0]
             mode = self.cfg.get("auto_capture", "phases")  # "phases", "movement" ou "off"
+            # vérifiée en premier, indépendamment du mode de capture : sinon elle ne se déclenche
+            # jamais en mode "phases" (la branche phase_ended ci-dessous l'aurait toujours interceptée).
+            if kind == "phase_ended" and is_final_phase_end(ev[1], ev[2], ev[3]) \
+               and getattr(self, "_finish_suggested_round", None) != ev[1][0]:
+                self._finish_suggested_round = ev[1][0]
+                self.emit("finish_suggest", {"round": ev[1][0]})
             if kind == "phase_ended" and mode == "phases":
                 drops, self._pending_drops = getattr(self, "_pending_drops", None), None
                 self.capture(kind="auto_phase", turn_key=ev[1], silent=True, ended_phase=ev[2], light=True,
@@ -506,8 +538,34 @@ class Controller:
             if self.live_code:
                 threading.Thread(target=live_share.push, args=(self.session, self.cfg, self.live_code),
                                  daemon=True).start()
+            if self.cfg.get("toast_on_capture", False):
+                try:
+                    toast.show("Servo-Skull", _toast_text(meta))
+                except Exception:
+                    pass
             self.emit("captured", meta)
             return meta
+
+    def undo_last_capture(self) -> dict | None:
+        """Annule la dernière capture de la partie en cours (bouton overlay). Idempotent :
+        sans capture à annuler, ne fait rien."""
+        if not self.session:
+            return None
+        meta = self.session.remove_last_capture()
+        if meta:
+            recap.build(self.session)
+            if self.live_code:
+                threading.Thread(target=live_share.push, args=(self.session, self.cfg, self.live_code),
+                                 daemon=True).start()
+        return meta
+
+    def flag_last_capture(self) -> dict | None:
+        if not self.session:
+            return None
+        meta = self.session.flag_last_capture()
+        if meta:
+            recap.build(self.session)
+        return meta
 
     def _check_layout(self):
         """Prévient en tout début de partie si les décors ne collent pas au layout officiel de
