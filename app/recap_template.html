@@ -366,6 +366,12 @@ TURNS.forEach(t=>{t.ph={};for(const k of t.idx){const c=C[k];const p=(c.endedPha
     if(PH_ORDER.includes(p)&&t.ph[p]==null)t.ph[p]=k}
   t.seq=PH_ORDER.map(p=>t.ph[p]).filter(k=>k!=null)});
 if(DEPLOY<0){const f=C.findIndex(c=>c.units);if(f>=0&&!TURNS.some(t=>t.seq.includes(f)))DEPLOY=f}
+// si un camp n'a encore rien posé sur la table au moment de cette capture (déploiement adverse pas
+// fini quand la capture auto_deploy s'est déclenchée), on avance jusqu'à la première capture où les
+// deux camps ont au moins une figurine en jeu, sinon le panneau "vs" affiche injustement 0 unité.
+if(DEPLOY>=0){const onBoardCount=c=>{const n={Red:0,Blue:0};if(c&&c.units)for(const u of c.units)if(alive(u)&&onBoard(u))n[sideOf(u[0])]++;return n};
+  const d0=onBoardCount(C[DEPLOY]);
+  if(!d0.Red||!d0.Blue)for(let k=DEPLOY+1;k<C.length;k++){if(!C[k].units||TURNS.some(t=>t.seq.includes(k)))continue;const n=onBoardCount(C[k]);if(n.Red&&n.Blue){DEPLOY=k;break}}}
 const SEQ=(DEPLOY>=0?[DEPLOY]:[]).concat(...TURNS.map(t=>t.seq));
 const visible=()=>focus===null?SEQ:TURNS[focus].seq;
 function turnStartIdx(k){const tn=turnOf(k);const T=TURNS[tn];
