@@ -9,14 +9,76 @@ const POLL_MS = 4000;
 const statusEl = document.getElementById("status");
 const frameEl = document.getElementById("frame");
 const emptyEl = document.getElementById("empty");
+const liveBarEl = document.getElementById("livebar");
+const liveLabelEl = document.getElementById("liveLabel");
 const code = new URLSearchParams(location.search).get("code");
+
+// Spectateur distant : atterrit sur le plan de table plein écran avec une barre de contrôle à
+// nous (◀ lecture ▶, "revenir en direct"), sans le panneau d'analyse post-partie (récit, unités,
+// outils de dessin, barre de rounds). recap_template.html n'est pas modifié (partagé avec le vrai
+// récap) : on masque/pilote son contenu depuis l'extérieur, une fois le contenu injecté
+// (re)chargé dans l'iframe. Les boutons #bPrev/#bPlay/#bNext du template restent dans le DOM
+// malgré leur conteneur masqué et répondent toujours à un .click() programmatique : on les
+// déclenche depuis notre barre plutôt que de réimplémenter la lecture automatique.
+let liveRefreshTimer = null, playing = false;
+
+function refreshLiveLabel() {
+  const doc = frameEl.contentDocument;
+  if (!doc) return;
+  const title = doc.querySelector(".ptitle");
+  const phase = doc.querySelector(".pts button.pt.on");
+  liveLabelEl.textContent = title ? title.textContent : "";
+  if (phase) liveLabelEl.textContent += " · " + phase.textContent;
+}
+
+function setPlaying(on) {
+  playing = on;
+  document.getElementById("bLivePlay").textContent = on ? "❚❚" : "▶";
+  clearInterval(liveRefreshTimer);
+  liveRefreshTimer = on ? setInterval(refreshLiveLabel, 400) : null;
+}
+
+document.getElementById("bLivePrev").onclick = () => {
+  frameEl.contentWindow.step(-1);
+  refreshLiveLabel();
+};
+document.getElementById("bLiveNext").onclick = () => {
+  frameEl.contentWindow.step(1);
+  refreshLiveLabel();
+};
+document.getElementById("bLivePlay").onclick = () => {
+  frameEl.contentDocument.getElementById("bPlay").click();
+  setPlaying(!playing);
+  refreshLiveLabel();
+};
+document.getElementById("bLiveNow").onclick = () => {
+  frameEl.contentWindow.step(1e9);
+  setPlaying(false);
+  refreshLiveLabel();
+};
+
+frameEl.addEventListener("load", () => {
+  const win = frameEl.contentWindow, doc = frameEl.contentDocument;
+  if (!win || !doc) return;
+  if (typeof win.setView === "function") win.setView("game");
+  // let/const du template ne deviennent pas des propriétés de `win` (contrairement aux
+  // déclarations de fonction) : step() avec un grand nombre se clampe à la dernière phase connue.
+  if (typeof win.step === "function") win.step(1e9);
+  const header = doc.querySelector("header");
+  if (header) header.style.display = "none";
+  ["tabs", "rail", "panel"].forEach(id => { const el = doc.getElementById(id); if (el) el.style.display = "none"; });
+  const work = doc.getElementById("work");
+  if (work) work.style.gridTemplateColumns = "1fr";
+  setPlaying(false);
+  refreshLiveLabel();
+});
 
 function setStatus(text, cls) {
   statusEl.textContent = text;
   statusEl.className = cls || "";
 }
 
-if (!code || !/^[0-9a-f]{8}$/.test(code)) {
+if (!code || !(/^[0-9a-f]{8}$/.test(code) || code === "local")) {
   setStatus("lien invalide", "err");
   emptyEl.hidden = false;
 } else if (typeof DecompressionStream === "undefined") {
@@ -42,7 +104,10 @@ async function gunzipToJson(b64) {
 }
 
 async function poll() {
-  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/live_games/${code}?key=${API_KEY}`;
+  // "local" : échappatoire de test sans Firestore, cf. app/gen_local_live_payload.py.
+  const url = code === "local"
+    ? "local-payload.json"
+    : `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/live_games/${code}?key=${API_KEY}`;
   let doc;
   try {
     const r = await fetch(url);
@@ -50,6 +115,7 @@ async function poll() {
       setStatus("en attente de la première capture…");
       emptyEl.hidden = false;
       frameEl.hidden = true;
+      liveBarEl.hidden = true;
       return;
     }
     if (!r.ok) throw new Error("http " + r.status);
@@ -63,6 +129,7 @@ async function poll() {
     setStatus("en attente de la première capture…");
     emptyEl.hidden = false;
     frameEl.hidden = true;
+    liveBarEl.hidden = true;
     return;
   }
   let data;
@@ -76,6 +143,7 @@ async function poll() {
   const json = JSON.stringify(data).replace(/</g, "\\u003c");
   frameEl.srcdoc = tpl.replace("/*__DATA__*/null", json);
   frameEl.hidden = false;
+  liveBarEl.hidden = false;
   emptyEl.hidden = true;
   setStatus("en direct", "live");
 }

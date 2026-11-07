@@ -15,13 +15,27 @@ header b{color:var(--coral);letter-spacing:.06em}
 #status.live{color:var(--cyan)}
 #status.err{color:var(--amber)}
 #frame{flex:1;border:0;width:100%}
-#empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--t2);padding:24px;text-align:center}
+#empty:not([hidden]){flex:1;display:flex;align-items:center;justify-content:center;color:var(--t2);padding:24px;text-align:center}
+#livebar{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 16px;border-top:1px solid var(--border);background:var(--bg1)}
+#livebar button{flex:none;width:38px;height:38px;border:1px solid var(--border);border-radius:50%;background:var(--bg0);color:var(--t1);font-size:15px;cursor:pointer}
+#livebar button:hover{border-color:var(--cyan)}
+#livebar #bLivePlay{width:44px;height:44px;color:var(--cyan)}
+#liveLabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--t1)}
+#livebar #bLiveNow{width:auto;height:auto;flex:none;margin-left:auto;padding:8px 14px;border:1px solid var(--cyan);border-radius:999px;background:transparent;color:var(--cyan);font:inherit;font-size:12px;white-space:nowrap;cursor:pointer}
+#bLiveNow:hover{background:rgba(56,189,248,.1)}
 </style>
 </head>
 <body>
 <header><b>SERVO-SKULL · LIVE</b><span id="status">connexion…</span></header>
 <div id="empty" hidden>Lien invalide ou partie pas encore partagée.</div>
 <iframe id="frame" hidden></iframe>
+<div id="livebar" hidden>
+  <button id="bLivePrev" title="Phase précédente" aria-label="Phase précédente">◀</button>
+  <button id="bLivePlay" title="Lecture" aria-label="Lecture">▶</button>
+  <button id="bLiveNext" title="Phase suivante" aria-label="Phase suivante">▶</button>
+  <span id="liveLabel"></span>
+  <button id="bLiveNow">⟳ Revenir en direct</button>
+</div>
 <script src="live.js"></script>
 </body>
 </html>
