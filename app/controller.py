@@ -227,6 +227,10 @@ class Controller:
             pass
 
     def finish_session(self) -> Path | None:
+        if self.session:
+            # dernier instantané de la table/du score avant de clore : sans ça, tout ce qui s'est
+            # joué depuis la dernière capture auto (ex. fin du dernier tour) manquerait au récap.
+            self.capture(kind="catchup", intent="Fin de partie", silent=True)
         self._stop.set()
         try:
             self.client.run_lua(L.watch_stop(), timeout=1)
