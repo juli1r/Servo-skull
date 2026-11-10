@@ -7,7 +7,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from core import OTHER, Session, parse_unit_name, strip_tags
+from core import OTHER, Session, infer_sides, parse_unit_name, strip_tags
 
 OBJECTIVE = re.compile(r"objecti", re.I)
 NOT_OBJECTIVE = re.compile(r"button|show|card|secondary|secondaire", re.I)
@@ -769,7 +769,13 @@ def _refine_sides_by_zone(sides: dict, doubt_guids, caps: list, zones: dict | No
     une fausse confiance par l'heuristique en direct. Une unité hors des deux zones (ex. layout en
     L : posée dans l'espace entre les deux, jamais vraiment "dans" sa zone) est quand même reclassée
     sur la zone la plus proche si elle est à ≤ _NEAR_ZONE_MAX pouces ; au-delà, trop incertain
-    (vraie réserve hors table...), elle garde son attribution actuelle."""
+    (vraie réserve hors table...), elle garde son attribution actuelle.
+    Le vote par zone ne compte que les unités déjà sûres (pas dans doubt_guids) : sinon une
+    attribution en direct déjà massivement fausse (ex. liste "Agents of the Imperium" sans règle
+    d'armée commune, heuristique en direct repliée sur le seul signe de z) se vote elle-même comme
+    « preuve », et comme les deux zones peuvent alors majoritairement voter le même camp, on ne
+    change rien dans ce cas dégénéré plutôt que d'aggraver l'erreur en réassignant tout le monde
+    au même camp."""
     sides = dict(sides)
     doubt_guids = set(doubt_guids)
     if not zones or len(zones.get("atk") or []) < 3 or len(zones.get("def") or []) < 3:
@@ -780,6 +786,8 @@ def _refine_sides_by_zone(sides: dict, doubt_guids, caps: list, zones: dict | No
             first_pos.setdefault(u[0], (u[4], u[5]))
     votes = {"atk": Counter(), "def": Counter()}
     for guid, side in sides.items():
+        if guid in doubt_guids:
+            continue
         pos = first_pos.get(guid)
         if not pos:
             continue
@@ -792,6 +800,10 @@ def _refine_sides_by_zone(sides: dict, doubt_guids, caps: list, zones: dict | No
         zone_side["def"] = OTHER[zone_side["atk"]]
     elif "def" in zone_side and "atk" not in zone_side:
         zone_side["atk"] = OTHER[zone_side["def"]]
+    if len(zone_side) == 2 and zone_side["atk"] == zone_side["def"]:
+        # vote dégénéré (les deux zones majoritaires sur le même camp) : l'entrée est déjà
+        # corrompue, on ne peut pas s'y fier pour décider qui est qui.
+        zone_side = {}
     if not zone_side:
         return sides, sorted(doubt_guids)
     resolved = set()
@@ -807,6 +819,20 @@ def _refine_sides_by_zone(sides: dict, doubt_guids, caps: list, zones: dict | No
                 sides[guid] = zone_side[nearest]
                 resolved.add(guid)
     return sides, sorted(doubt_guids - resolved)
+
+
+def _tints_for(units_dir: Path, guids) -> dict:
+    """Teinte (ColorDiffuse) des modèles, lue dans units/<guid>.json (même source que Session._tints,
+    utilisable ici sans instance de Controller en direct)."""
+    out = {}
+    for g in guids:
+        try:
+            c = json.loads((units_dir / f"{g}.json").read_text(encoding="utf-8")).get("ColorDiffuse")
+            if isinstance(c, dict):
+                out[g] = (float(c.get("r", 0)), float(c.get("g", 0)), float(c.get("b", 0)))
+        except (OSError, ValueError, AttributeError):
+            pass
+    return out
 
 
 def _doubt_names(doubt_guids, caps: list, names: dict) -> list:
@@ -863,22 +889,36 @@ def collect(session: Session) -> dict:
     """Toutes les données du récap (aussi utilisées pour le GIF)."""
     g = session.game
     board = g.get("board") or {"w": 60, "d": 44}
+    red_positive_z = g.get("redPositiveZ", True)
+    units_dir = session.dir / "units"
     caps, cache = [], {"_hint": layout_hint(g["captures"])}
+    sides, doubt_guids = {}, set()
     for m in g["captures"]:
         c = {k: m.get(k) for k in ("id", "kind", "label", "round", "turn", "phaseName", "vp", "cp",
                                     "score", "cards", "intent", "note", "screenshot", "time", "endedPhase", "drops", "approx")}
         if m.get("data"):
             snap = session.load_snapshot(m["id"])
             if snap:
+                # on recalcule les camps depuis l'historique complet des captures plutôt que de
+                # faire confiance à g["sides"] (figé au moment où le live l'a attribué, jamais
+                # réévalué) : la même heuristique, rejouée sur toute la partie, profite en plus
+                # du durcissement de infer_sides/_resolve_ungrouped. Rien n'est réécrit dans la
+                # sauvegarde (recap.collect() reste une lecture pure).
+                units = [o for o in snap.get("objects", []) if o.get("unit")]
+                if units:
+                    sides = infer_sides(units, sides, board["d"] / 2, red_positive_z,
+                                         _tints_for(units_dir, (u["guid"] for u in units)), doubt_guids)
                 c.update(reduce_snapshot(snap, board, cache))
         caps.append(c)
+    if not sides:  # aucune capture exploitable (vieille partie sans snapshots conservés, etc.)
+        sides, doubt_guids = dict(g.get("sides") or {}), set(g.get("sidesDoubt") or [])
     split_squads(caps, board, session.dir / "units")
     shift_command_moves(caps)
     names = squad_names(caps, session.dir / "units")
     for k in sorted(k for k in names if "#" in k):  # « Slaughterbound », « Slaughterbound (2) »
         if k.split("#")[0] in names and names[k] == names[k.split("#")[0]]:
             names[k] = f"{names[k]} ({k.split('#')[1]})"
-    sides, doubt_guids = _refine_sides_by_zone(g.get("sides") or {}, g.get("sidesDoubt") or [],
+    sides, doubt_guids = _refine_sides_by_zone(sides, doubt_guids,
                                                 caps, (cache.get("_fit") or {}).get("zones"))
     data = {"ttsSaves": [{k: m.get(k) for k in ("file", "label", "time", "round", "turn")}
                          for m in g.get("ttsSaves") or []],

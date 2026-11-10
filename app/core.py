@@ -147,13 +147,19 @@ def _army_rule_lines(abilities: str) -> set[str]:
     return {l.strip().replace("\xa0", " ") for l in lines if l.strip()}
 
 
-def _resolve_ungrouped(pending_units, result, allu, lines, tints, pos_vote, doubt):
+def _resolve_ungrouped(pending_units, result, allu, lines, tints, pos_vote, doubt, has_groups=True):
     """Unités sans règle d'armée dominante (ex. Witchseekers/Prosecutors : codex Custodes, mais sans « Martial Ka'tah »). La position au premier regard
     ne suffit pas (avant le déploiement, tout peut être posé n'importe où) : on croise avec
     - la teinte du modèle (ColorDiffuse) déjà vue sur des unités attribuées (ex. Custodes dorés) ;
     - les règles de l'unité déjà portées par des unités attribuées d'un seul camp ;
     - la position (faible, sauf réserves hors table).
-    On propage : une unité attribuée avec assez de marge sert de preuve aux suivantes."""
+    On propage : une unité attribuée avec assez de marge sert de preuve aux suivantes.
+    has_groups=False (aucune règle d'armée commune trouvée nulle part, ex. liste "Agents of the
+    Imperium" des deux côtés) : le vote ligne/teinte n'a alors aucune ancre fiable au départ — des
+    mots-clés d'unité génériques partagés par les deux camps peuvent se voter eux-mêmes à tort et
+    converger en boucle vers un partage confiant mais faux. Dans ce cas on ne verrouille que les
+    unités déjà sûres (GMNotes, ou vote de position fort = réserve hors table) ; les autres restent
+    douteuses et attendent le recalage par zone de déploiement fait au récap."""
     pending = {u["guid"]: u for u in pending_units}
     # (1, 1, 1) = teinte par défaut de TTS : ne prouve rien, donc ignorée
     tk = lambda g: (tuple(round(x, 2) for x in tints[g]) if tints.get(g) and tuple(round(x, 2) for x in tints[g]) != (1.0, 1.0, 1.0) else None)
@@ -187,7 +193,10 @@ def _resolve_ungrouped(pending_units, result, allu, lines, tints, pos_vote, doub
             side, w = pos_vote(u)
             sc[side] += w
             scores[g] = sc
-        done = [g for g, sc in scores.items() if abs(sc["Red"] - sc["Blue"]) >= 3]
+        if has_groups:
+            done = [g for g, sc in scores.items() if abs(sc["Red"] - sc["Blue"]) >= 3]
+        else:  # pas d'ancre fiable : seul un vote de position fort (réserve) verrouille
+            done = [g for g, u in pending.items() if pos_vote(u)[1] >= 3.0]
         for g in done:
             result[g] = "Red" if scores[g]["Red"] > scores[g]["Blue"] else "Blue"
             del pending[g]
@@ -232,18 +241,24 @@ def infer_sides(units: list[dict], known: dict[str, str], board_hd: float,
     allu = units
     lines = {u["guid"]: _army_rule_lines(u.get("abilities", "")) for u in allu}
     cnt = Counter(l for s in lines.values() for l in s)
+    # une vraie règle d'armée propre à un seul camp ne peut couvrir qu'au plus la moitié du champ
+    # de bataille (une seule armée) ; un mot-clé présent sur une bien plus grande part des unités
+    # (ex. « Deep Strike », partagé par plusieurs codex des deux côtés sur une liste "Agents of
+    # the Imperium") n'est pas un signal de camp et ne doit jamais être choisi comme tel.
+    ceiling = 0.6 * len(allu)
     groups: dict[str, str] = {}
     if cnt:
-        a = cnt.most_common(1)[0][0]
-        rest = [u for u in allu if a not in lines[u["guid"]]]
+        cand_a = [l for l, c in cnt.most_common() if c <= ceiling]
+        a = cand_a[0] if cand_a else None
+        rest = [u for u in allu if a not in lines[u["guid"]]] if a else []
         b = None
         if rest:
             c2 = Counter(l for u in rest for l in lines[u["guid"]])
-            if c2:
-                cand, n = c2.most_common(1)[0]
-                if n >= 0.6 * len(rest):
+            for cand, n in c2.most_common():
+                if cnt[cand] <= ceiling and n >= 0.6 * len(rest):
                     b = cand
-        if b:
+                    break
+        if a and b:
             for u in allu:
                 s = lines[u["guid"]]
                 if a in s and b not in s:
@@ -272,9 +287,9 @@ def infer_sides(units: list[dict], known: dict[str, str], board_hd: float,
                 result[u["guid"]] = side_of[g]
             else:
                 loose.append(u)
-        _resolve_ungrouped(loose, result, allu, lines, tints or {}, pos_vote, doubt)
+        _resolve_ungrouped(loose, result, allu, lines, tints or {}, pos_vote, doubt, has_groups=True)
     else:
-        _resolve_ungrouped(todo, result, allu, lines, tints or {}, pos_vote, doubt)
+        _resolve_ungrouped(todo, result, allu, lines, tints or {}, pos_vote, doubt, has_groups=False)
     return result
 
 
