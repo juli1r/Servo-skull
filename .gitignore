@@ -22,5 +22,6 @@ Servo-Skull.exe
 site/recap_template.html
 site/local-payload.json
 .superpowers/
+.worktrees/
 # --- état runtime du hook plan-obligatoire (CLAUDE.md règle 1) ---
 .claude/.planmode-markers/
