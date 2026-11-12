@@ -247,6 +247,13 @@ class Controller:
                 (self.session.dir / "cogitator-export-erreur.txt").write_text(str(e), encoding="utf-8")
             except OSError:
                 pass
+        try:
+            cogitator_export.export_film(self.session)
+        except Exception as e:
+            try:
+                (self.session.dir / "cogitator-film-erreur.txt").write_text(str(e), encoding="utf-8")
+            except OSError:
+                pass
         sess = self.session
         self.session = None
 
