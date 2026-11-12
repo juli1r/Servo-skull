@@ -5,9 +5,11 @@ pour être relu et importé par le joueur lui-même dans l'onglet Résultats/Vox
 d'un event Cogitator, à côté de `recap.html` et du GIF."""
 from __future__ import annotations
 
+import gzip
 import json
 from pathlib import Path
 
+import recap
 from core import Session
 
 SCHEMA = 1
@@ -57,4 +59,20 @@ def export(session: Session) -> Path | None:
     }
     path = session.dir / "resume-cogitator.json"
     path.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
+    return path
+
+
+def export_film(session: Session) -> Path | None:
+    """Film complet de la partie (même payload que le récap/mode live, sans les références
+    locales), pour import manuel dans Cogitator — voir docs/superpowers/specs/
+    2026-11-12-cogitator-film-export-design.md."""
+    if not session.game.get("captures"):
+        return None
+    data = recap.collect(session)
+    data.pop("ttsSaves", None)
+    data.pop("folder", None)
+    data["captures"] = [{k: v for k, v in c.items() if k != "screenshot"} for c in data["captures"]]
+    raw = json.dumps(data, ensure_ascii=False).encode("utf-8")
+    path = session.dir / "film-cogitator.json.gz"
+    path.write_bytes(gzip.compress(raw))
     return path
