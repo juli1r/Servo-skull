@@ -68,7 +68,7 @@ def export_film(session: Session) -> Path | None:
     2026-11-12-cogitator-film-export-design.md."""
     if not session.game.get("captures"):
         return None
-    data = dict(recap.collect(session))
+    data = recap.collect(session)
     data.pop("ttsSaves", None)
     data.pop("folder", None)
     data["captures"] = [{k: v for k, v in c.items() if k != "screenshot"} for c in data["captures"]]
