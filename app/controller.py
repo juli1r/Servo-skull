@@ -247,15 +247,18 @@ class Controller:
                 (self.session.dir / "cogitator-export-erreur.txt").write_text(str(e), encoding="utf-8")
             except OSError:
                 pass
-        try:
-            cogitator_export.export_film(self.session)
-        except Exception as e:
-            try:
-                (self.session.dir / "cogitator-film-erreur.txt").write_text(str(e), encoding="utf-8")
-            except OSError:
-                pass
         sess = self.session
         self.session = None
+
+        def export_film():  # fil non « daemon » : collect() est déjà appelé une fois par recap.build()
+            try:                                                   # ci-dessus ; ne pas le refaire sur le thread Tk
+                cogitator_export.export_film(sess)
+            except Exception as e:
+                try:
+                    (sess.dir / "cogitator-film-erreur.txt").write_text(str(e), encoding="utf-8")
+                except OSError:
+                    pass
+        threading.Thread(target=export_film, daemon=False).start()
 
         def make_gif():  # fil non « daemon » : le programme attend la fin du GIF avant de se fermer
             try:
