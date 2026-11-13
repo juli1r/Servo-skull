@@ -33,10 +33,8 @@ def enable_dpi_awareness():
             pass
 
 
-def _tts_client_rect():
+def _tts_rect_win32():
     """Rectangle écran (x, y, w, h) de la zone de rendu de TTS, ou None."""
-    if sys.platform != "win32":
-        return None
     import ctypes
     from ctypes import wintypes
 
@@ -69,6 +67,30 @@ def _tts_client_rect():
     if w < 100 or h < 100:
         return None
     return pt.x, pt.y, w, h
+
+
+def _tts_rect_macos():
+    return None  # implémenté au Task 4
+
+
+def _tts_rect_x11():
+    return None  # implémenté au Task 5
+
+
+def _tts_client_rect():
+    """Rectangle écran (x, y, w, h) de la zone de rendu de TTS, ou None si indétectable."""
+    try:
+        if sys.platform == "win32":
+            return _tts_rect_win32()
+        if sys.platform == "darwin":
+            return _tts_rect_macos()
+        if sys.platform.startswith("linux"):
+            if _is_wayland():
+                return None
+            return _tts_rect_x11()
+    except Exception:
+        pass
+    return None
 
 
 def make_screenshotter(max_width: int = 1920, quality: int = 85):
