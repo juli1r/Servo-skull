@@ -353,7 +353,7 @@ class Overlay:
             txt = f"↻ Installation de v{info['version']}… redémarrage dans un instant."
         elif state == "error":
             txt = f"⚠ Échec du téléchargement — clique pour la page de téléchargement de v{info['version']}."
-        elif self_update.is_frozen() and info.get("asset_url"):
+        elif sys.platform == "win32" and self_update.is_frozen() and info.get("asset_url"):
             txt = f"↑ Servo-Skull v{info['version']} disponible — clique pour installer automatiquement"
         else:
             txt = f"↑ Servo-Skull v{info['version']} disponible — clique pour la page de téléchargement"
@@ -372,7 +372,7 @@ class Overlay:
         state = getattr(self, "_update_state", "available")
         if state in ("downloading", "installing"):
             return  # déjà en cours
-        if not (self_update.is_frozen() and info.get("asset_url")):
+        if not (sys.platform == "win32" and self_update.is_frozen() and info.get("asset_url")):
             webbrowser.open(info["url"])  # dev (sources) ou pas de zip exploitable : jamais d'auto-update
             return
 
