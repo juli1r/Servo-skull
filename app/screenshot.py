@@ -75,8 +75,9 @@ def _tts_rect_macos():
     options = Quartz.kCGWindowListOptionOnScreenOnly
     windows = Quartz.CGWindowListCopyWindowInfo(options, Quartz.kCGNullWindowID)
     for w in windows or []:
-        name = w.get("kCGWindowOwnerName") or w.get("kCGWindowName") or ""
-        if name.strip() != "Tabletop Simulator":
+        owner = (w.get("kCGWindowOwnerName") or "").strip()
+        wname = (w.get("kCGWindowName") or "").strip()
+        if "Tabletop Simulator" not in (owner, wname):
             continue
         bounds = w.get("kCGWindowBounds")
         if not bounds:
