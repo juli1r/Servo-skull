@@ -10,8 +10,14 @@ from PIL import Image
 
 
 def _is_wayland(env=None) -> bool:
+    """XDG_SESSION_TYPE fait autorité quand il est défini (il distingue un Wayland pur d'un X11
+    avec XWayland, qui peut laisser WAYLAND_DISPLAY présent sans que la session soit Wayland).
+    WAYLAND_DISPLAY ne sert de repli que si XDG_SESSION_TYPE est absent."""
     env = os.environ if env is None else env
-    return env.get("XDG_SESSION_TYPE") == "wayland" or "WAYLAND_DISPLAY" in env
+    session_type = env.get("XDG_SESSION_TYPE")
+    if session_type:
+        return session_type == "wayland"
+    return "WAYLAND_DISPLAY" in env
 
 
 def enable_dpi_awareness():
