@@ -94,10 +94,18 @@ jobs:
           New-Item -ItemType Directory -Force $stage | Out-Null
           if (Test-Path "dist/Servo-Skull.app") {
             # bundle macOS : il doit rester un dossier *.app à côté des README, jamais renommé ni
-            # "ouvert" (ses README collés à la racine du bundle invalident la signature ad hoc)
-            Copy-Item "dist/Servo-Skull.app" (Join-Path $stage "Servo-Skull.app") -Recurse -Force
-          } else {
+            # "ouvert" (ses README collés à la racine du bundle invalident la signature ad hoc).
+            # ditto (pas Copy-Item) : Copy-Item de PowerShell suit les liens symboliques internes
+            # du bundle (Frameworks/Resources) au lieu de les recréer, ce qui invaliderait la
+            # signature ad hoc bien avant l'étape d'archivage ci-dessous.
+            ditto "dist/Servo-Skull.app" (Join-Path $stage "Servo-Skull.app")
+          } elseif ($IsWindows) {
             Copy-Item "dist/Servo-Skull/*" $stage -Recurse -Force
+          } else {
+            # Linux onedir : pas de bundle à liens symboliques, mais cp -a préserve le bit +x et
+            # reste cohérent avec l'usage d'outils natifs par OS pour tout ce qui touche aux
+            # permissions/liens Unix dans cette étape.
+            cp -a "dist/Servo-Skull/." "$stage/"
           }
           Copy-Item LISEZMOI.md (Join-Path $stage "LISEZMOI.md")
           Copy-Item README.md (Join-Path $stage "LISEZ-MOI-D-ABORD.md")
