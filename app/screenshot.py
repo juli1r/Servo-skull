@@ -137,9 +137,14 @@ def _tts_client_rect():
     return None
 
 
-def make_screenshotter(max_width: int = 1920, quality: int = 85):
+def make_screenshotter(max_width: int = 1920, quality: int = 85, on_capture_scope=None):
     def shoot(base: Path) -> Path | None:
         rect = _tts_client_rect()
+        if on_capture_scope:
+            try:
+                on_capture_scope(rect is not None)
+            except Exception:
+                pass
         with mss.mss() as sct:
             if rect:
                 x, y, w, h = rect
