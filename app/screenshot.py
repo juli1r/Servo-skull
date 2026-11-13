@@ -94,26 +94,31 @@ def _tts_rect_x11():
     from Xlib import display
 
     d = display.Display()
-    root = d.screen().root
-    net_client_list = d.intern_atom("_NET_CLIENT_LIST")
-    net_wm_name = d.intern_atom("_NET_WM_NAME")
-    prop = root.get_full_property(net_client_list, 0)
-    if not prop:
-        return None
-    for window_id in prop.value:
-        win = d.create_resource_object("window", window_id)
-        wm_name = win.get_full_property(net_wm_name, 0) or win.get_wm_name()
-        name = (wm_name.value.decode("utf-8", "replace") if hasattr(wm_name, "value") else wm_name) or ""
-        if name.strip() != "Tabletop Simulator":
-            continue
-        geom = win.get_geometry()
-        coords = win.translate_coords(root, 0, 0)
-        x, y = -coords.x, -coords.y
-        w_, h_ = geom.width, geom.height
-        if w_ < 100 or h_ < 100:
+    try:
+        root = d.screen().root
+        net_client_list = d.intern_atom("_NET_CLIENT_LIST")
+        net_wm_name = d.intern_atom("_NET_WM_NAME")
+        prop = root.get_full_property(net_client_list, 0)
+        if not prop:
             return None
-        return x, y, w_, h_
-    return None
+        for window_id in prop.value:
+            win = d.create_resource_object("window", window_id)
+            wm_name = win.get_full_property(net_wm_name, 0) or win.get_wm_name()
+            name = (wm_name.value.decode("utf-8", "replace") if hasattr(wm_name, "value") else wm_name) or ""
+            if name.strip() != "Tabletop Simulator":
+                continue
+            geom = win.get_geometry()
+            # translate_coords(root, 0, 0) renvoie déjà la position de win dans l'espace de root :
+            # c'est directement la position absolue sur l'écran, pas besoin de l'inverser.
+            coords = win.translate_coords(root, 0, 0)
+            x, y = coords.x, coords.y
+            w_, h_ = geom.width, geom.height
+            if w_ < 100 or h_ < 100:
+                return None
+            return x, y, w_, h_
+        return None
+    finally:
+        d.close()
 
 
 def _tts_client_rect():
