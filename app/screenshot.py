@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import Callable
 
 import mss
 from PIL import Image
@@ -137,14 +138,15 @@ def _tts_client_rect():
     return None
 
 
-def make_screenshotter(max_width: int = 1920, quality: int = 85, on_capture_scope=None):
+def make_screenshotter(max_width: int = 1920, quality: int = 85,
+                        on_capture_scope: Callable[[bool], None] | None = None):
     def shoot(base: Path) -> Path | None:
         rect = _tts_client_rect()
-        if on_capture_scope:
+        if on_capture_scope is not None:
             try:
                 on_capture_scope(rect is not None)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[screenshot] on_capture_scope a échoué : {e!r}", file=sys.stderr)
         with mss.mss() as sct:
             if rect:
                 x, y, w, h = rect
