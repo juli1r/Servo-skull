@@ -1,5 +1,7 @@
 """Vérifie que l'overlay affiche une bannière quand la fenêtre TTS n'est pas détectée
-(ev == "capture_scope", found=False), et la masque quand elle est retrouvée ou cliquée."""
+(ev == "capture_scope", found=False), la masque quand elle est retrouvée ou cliquée, et que
+le masquage par clic est durable : il ne doit pas réapparaître aux captures suivantes tant que
+TTS reste introuvable, seulement après un futur found=True."""
 import sys, time, traceback
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
@@ -51,6 +53,18 @@ def run():
         ui._dismiss_capture_scope()
         ui.root.update()
         assert not _shown(ui.lbl_capture_scope), "clic doit masquer la bannière"
+
+        # masquage durable : tant que TTS reste introuvable, la bannière ne doit pas revenir
+        ui.emit("capture_scope", {"found": False})
+        _pump(ui)
+        assert not _shown(ui.lbl_capture_scope), "masquage durable : pas de retour avant found=True"
+
+        # retrouvée puis re-perdue : la bannière doit pouvoir réapparaître
+        ui.emit("capture_scope", {"found": True})
+        _pump(ui)
+        ui.emit("capture_scope", {"found": False})
+        _pump(ui)
+        assert _shown(ui.lbl_capture_scope), "après un found=True, la bannière réapparaît si TTS est reperdu"
     finally:
         ui.root.destroy()
 

@@ -441,6 +441,7 @@ class Overlay:
 
     def _dismiss_capture_scope(self):
         self._capture_scope_info = None
+        self._capture_scope_dismissed = True
         if hasattr(self, "lbl_capture_scope") and self.lbl_capture_scope.winfo_exists():
             self.lbl_capture_scope.pack_forget()
 
@@ -1010,7 +1011,8 @@ class Overlay:
         elif ev == "capture_scope":
             if p.get("found"):
                 self._dismiss_capture_scope()
-            else:
+                self._capture_scope_dismissed = False  # retrouvée : un futur "non détectée" réaffichera la bannière
+            elif not getattr(self, "_capture_scope_dismissed", False):
                 self._capture_scope_info = p
                 self._apply_capture_scope_banner()
             self._update_badge()
