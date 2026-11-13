@@ -6,6 +6,24 @@ Ton adversaire ne voit rien : aucune interface, aucun script ni objet n'est ajou
 
 ---
 
+## Mac / Linux (beta)
+
+Ces deux plateformes sont nouvelles et pas testées sur du vrai matériel — seule la CI confirme
+que ça build et démarre. En particulier :
+- Si Tabletop Simulator n'est pas détecté précisément (notamment sous Linux **Wayland**, où la
+  détection de fenêtre n'est pas possible), une bannière ambre apparaît dans l'overlay pour te
+  prévenir que la capture se fait sur l'écran entier plutôt que juste sur TTS.
+- Pas de mise à jour automatique en un clic sur Mac/Linux pour l'instant : télécharger la
+  nouvelle version manuellement depuis la page Releases.
+- **Mac uniquement** : l'app n'est pas signée (pas de compte développeur Apple) — au premier
+  lancement, macOS (Gatekeeper) bloquera l'ouverture. Clic droit sur l'app → **Ouvrir**, puis
+  confirmer dans la popup. Une seule fois.
+
+Un souci à signaler ? Un message sur le Discord avec ton OS exact (version de macOS/distribution
+Linux + compositeur X11/Wayland) aide beaucoup.
+
+---
+
 ## Installation et mises à jour
 
 - **Première fois :** double-clique sur **`lancer.bat`**. Il installe ce qu'il faut (Python 3.10+ requis), puis lance l'overlay. Les fois suivantes, il lance directement.
