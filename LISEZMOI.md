@@ -6,6 +6,43 @@ Ton adversaire ne voit rien : aucune interface, aucun script ni objet n'est ajou
 
 ---
 
+## Mac / Linux (beta)
+
+Ces deux plateformes sont nouvelles et pas testées sur du vrai matériel — seule la CI confirme
+que ça build, pas qu'elles tournent réellement en jeu. En particulier :
+- **Lancement :** pas de `lancer.bat` ici. **Linux :** depuis le dossier où tu as extrait le zip,
+  lance `./Servo-Skull/Servo-Skull` (si ça ne démarre pas, essaie d'abord `chmod +x Servo-Skull/Servo-Skull` —
+  certains gestionnaires d'archives perdent le droit d'exécution). **Mac :** ouvre `Servo-Skull.app`.
+- **Pas de raccourcis clavier F8/F9** sur Mac/Linux pour l'instant (ils sont encore affichés sur
+  les boutons, ignore la mention) : utilise directement les boutons **Capturer**/**Fin de phase**
+  dans l'overlay.
+- Si Tabletop Simulator n'est pas détecté précisément, une bannière ambre apparaît dans l'overlay
+  pour te prévenir que la capture se fait sur l'écran entier plutôt que juste sur TTS. **Sous Linux
+  Wayland**, c'est pire que ça : la détection de fenêtre est impossible *et* le repli "écran entier"
+  risque fort de ne rien capturer du tout (image noire). Ouvre une session **X11** (souvent listée
+  "Ubuntu sur Xorg" à l'écran de connexion) pour que la capture fonctionne.
+- Pas de mise à jour automatique en un clic sur Mac/Linux pour l'instant : télécharger la
+  nouvelle version manuellement depuis la page Releases.
+- **Mac uniquement** :
+  - L'app n'est pas signée (pas de compte développeur Apple). Sur macOS 15 (Sequoia) et plus
+    récent, le clic droit → Ouvrir ne suffit plus : va dans **Réglages Système → Confidentialité et
+    sécurité**, et en bas de la page, clique **"Ouvrir quand même"** pour Servo-Skull (sur les
+    versions plus anciennes, clic droit sur l'app → **Ouvrir** reste suffisant).
+  - Pour que la capture d'écran fonctionne du tout, macOS doit t'autoriser explicitement :
+    **Réglages Système → Confidentialité et sécurité → Enregistrement de l'écran**, active
+    Servo-Skull. Comme l'app n'est pas signée par un vrai certificat, cette autorisation peut
+    sauter à chaque mise à jour — si la capture ne montre plus que le fond d'écran, vérifie ce
+    réglage en premier.
+  - Le build fourni ne tourne que sur **Apple Silicon** (M1/M2/M3/...), pas sur les Mac Intel.
+- **Linux uniquement** : le build est fait sur Ubuntu 24.04. Il peut refuser de démarrer sur des
+  distributions avec une glibc plus ancienne (Ubuntu 22.04, Debian 12, Mint 21...) avec une erreur
+  du type « GLIBC_... not found ». Dis-le sur Discord si c'est ton cas.
+
+Un souci à signaler ? Un message sur le Discord avec ton OS exact (version de macOS/distribution
+Linux + compositeur X11/Wayland) aide beaucoup.
+
+---
+
 ## Installation et mises à jour
 
 - **Première fois :** double-clique sur **`lancer.bat`**. Il installe ce qu'il faut (Python 3.10+ requis), puis lance l'overlay. Les fois suivantes, il lance directement.

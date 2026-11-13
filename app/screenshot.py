@@ -1,11 +1,24 @@
 """Capture d'écran de la fenêtre Tabletop Simulator (Windows), JPEG compressé."""
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
+from typing import Callable
 
 import mss
 from PIL import Image
+
+
+def _is_wayland(env=None) -> bool:
+    """XDG_SESSION_TYPE fait autorité quand il est défini (il distingue un Wayland pur d'un X11
+    avec XWayland, qui peut laisser WAYLAND_DISPLAY présent sans que la session soit Wayland).
+    WAYLAND_DISPLAY ne sert de repli que si XDG_SESSION_TYPE est absent."""
+    env = os.environ if env is None else env
+    session_type = env.get("XDG_SESSION_TYPE")
+    if session_type:
+        return session_type == "wayland"
+    return "WAYLAND_DISPLAY" in env
 
 
 def enable_dpi_awareness():
@@ -21,10 +34,8 @@ def enable_dpi_awareness():
             pass
 
 
-def _tts_client_rect():
+def _tts_rect_win32():
     """Rectangle écran (x, y, w, h) de la zone de rendu de TTS, ou None."""
-    if sys.platform != "win32":
-        return None
     import ctypes
     from ctypes import wintypes
 
@@ -59,9 +70,85 @@ def _tts_client_rect():
     return pt.x, pt.y, w, h
 
 
-def make_screenshotter(max_width: int = 1920, quality: int = 85):
+def _tts_rect_macos():
+    import Quartz
+
+    options = Quartz.kCGWindowListOptionOnScreenOnly
+    windows = Quartz.CGWindowListCopyWindowInfo(options, Quartz.kCGNullWindowID)
+    for w in windows or []:
+        owner = (w.get("kCGWindowOwnerName") or "").strip()
+        wname = (w.get("kCGWindowName") or "").strip()
+        if "Tabletop Simulator" not in (owner, wname):
+            continue
+        bounds = w.get("kCGWindowBounds")
+        if not bounds:
+            return None
+        x, y = int(bounds["X"]), int(bounds["Y"])
+        w_, h_ = int(bounds["Width"]), int(bounds["Height"])
+        if w_ < 100 or h_ < 100:
+            return None
+        return x, y, w_, h_
+    return None
+
+
+def _tts_rect_x11():
+    from Xlib import display
+
+    d = display.Display()
+    try:
+        root = d.screen().root
+        net_client_list = d.intern_atom("_NET_CLIENT_LIST")
+        net_wm_name = d.intern_atom("_NET_WM_NAME")
+        prop = root.get_full_property(net_client_list, 0)
+        if not prop:
+            return None
+        for window_id in prop.value:
+            win = d.create_resource_object("window", window_id)
+            wm_name = win.get_full_property(net_wm_name, 0) or win.get_wm_name()
+            name = (wm_name.value.decode("utf-8", "replace") if hasattr(wm_name, "value") else wm_name) or ""
+            if name.strip() != "Tabletop Simulator":
+                continue
+            geom = win.get_geometry()
+            # root.translate_coords(win, 0, 0) traduit le point (0,0) de l'espace de win vers
+            # l'espace de root : c'est la position absolue de win sur l'écran.
+            # (win.translate_coords(root, 0, 0), utilisé plus tôt, fait l'inverse — la position de
+            # root dans l'espace de win, donc l'opposé de la position absolue — d'où un signe faux.)
+            coords = root.translate_coords(win, 0, 0)
+            x, y = coords.x, coords.y
+            w_, h_ = geom.width, geom.height
+            if w_ < 100 or h_ < 100:
+                return None
+            return x, y, w_, h_
+        return None
+    finally:
+        d.close()
+
+
+def _tts_client_rect():
+    """Rectangle écran (x, y, w, h) de la zone de rendu de TTS, ou None si indétectable."""
+    try:
+        if sys.platform == "win32":
+            return _tts_rect_win32()
+        if sys.platform == "darwin":
+            return _tts_rect_macos()
+        if sys.platform.startswith("linux"):
+            if _is_wayland():
+                return None
+            return _tts_rect_x11()
+    except Exception as e:
+        print(f"[screenshot] détection fenêtre TTS échouée : {e!r}", file=sys.stderr)
+    return None
+
+
+def make_screenshotter(max_width: int = 1920, quality: int = 85,
+                        on_capture_scope: Callable[[bool], None] | None = None):
     def shoot(base: Path) -> Path | None:
         rect = _tts_client_rect()
+        if on_capture_scope is not None:
+            try:
+                on_capture_scope(rect is not None)
+            except Exception as e:
+                print(f"[screenshot] on_capture_scope a échoué : {e!r}", file=sys.stderr)
         with mss.mss() as sct:
             if rect:
                 x, y, w, h = rect

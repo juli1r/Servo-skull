@@ -8,14 +8,14 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    runs-on: windows-latest
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      exists: ${{ steps.existing.outputs.exists }}
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
 
       - name: Lire VERSION (app/core.py)
         id: version
@@ -43,37 +43,90 @@ jobs:
           }
           exit 0
 
-      - name: Dépendances
+      - name: Créer la Release GitHub (vide, assets ajoutés par le job build)
         if: steps.existing.outputs.exists == 'false'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" `
+            --title "Servo-Skull ${{ steps.version.outputs.version }}" --generate-notes
+
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.exists == 'false'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            suffix: windows
+          - os: macos-latest
+            suffix: macos
+          - os: ubuntu-latest
+            suffix: linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Dépendances
         run: pip install -r requirements.txt pyinstaller
 
       - name: Build (--onedir, comme empaqueter.bat)
-        if: steps.existing.outputs.exists == 'false'
         shell: pwsh
         run: |
+          $sep = $IsWindows ? ';' : ':'
+          $iconArgs = @()
+          if ($IsWindows) { $iconArgs = @('--icon', 'app/assets/servo-skull.ico') }
           pyinstaller --noconfirm --onedir --windowed --name Servo-Skull --paths app `
-            --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32 `
-            --add-data "app\recap_template.html;." --add-data "app\assets;assets" --add-data "app\data;data" --icon "app\assets\servo-skull.ico" `
-            app\main.py
-          Copy-Item LISEZMOI.md dist\Servo-Skull\LISEZMOI.md
-          Copy-Item README.md dist\Servo-Skull\LISEZ-MOI-D-ABORD.md
+            --add-data "app/recap_template.html${sep}." --add-data "app/assets${sep}assets" --add-data "app/data${sep}data" @iconArgs `
+            app/main.py
 
       - name: Empaqueter le zip
-        if: steps.existing.outputs.exists == 'false'
         id: zip
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force release | Out-Null
-          $zip = "release\Servo-Skull-${{ steps.version.outputs.version }}-windows.zip"
-          Compress-Archive -Path dist\Servo-Skull -DestinationPath $zip
+          $stage = "release/stage/Servo-Skull"
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          if (Test-Path "dist/Servo-Skull.app") {
+            # bundle macOS : il doit rester un dossier *.app à côté des README, jamais renommé ni
+            # "ouvert" (ses README collés à la racine du bundle invalident la signature ad hoc).
+            # ditto (pas Copy-Item) : Copy-Item de PowerShell suit les liens symboliques internes
+            # du bundle (Frameworks/Resources) au lieu de les recréer, ce qui invaliderait la
+            # signature ad hoc bien avant l'étape d'archivage ci-dessous.
+            ditto "dist/Servo-Skull.app" (Join-Path $stage "Servo-Skull.app")
+          } elseif ($IsWindows) {
+            Copy-Item "dist/Servo-Skull/*" $stage -Recurse -Force
+          } else {
+            # Linux onedir : pas de bundle à liens symboliques, mais cp -a préserve le bit +x et
+            # reste cohérent avec l'usage d'outils natifs par OS pour tout ce qui touche aux
+            # permissions/liens Unix dans cette étape.
+            cp -a "dist/Servo-Skull/." "$stage/"
+          }
+          Copy-Item LISEZMOI.md (Join-Path $stage "LISEZMOI.md")
+          Copy-Item README.md (Join-Path $stage "LISEZ-MOI-D-ABORD.md")
+          $zip = "release/Servo-Skull-${{ needs.prepare.outputs.version }}-${{ matrix.suffix }}.zip"
+          if ($IsWindows) {
+            Compress-Archive -Path $stage -DestinationPath $zip
+          } elseif ($IsMacOS) {
+            # Compress-Archive perd les liens symboliques du bundle .app (Frameworks/Resources) et
+            # les droits d'exécution Unix : ditto préserve tout ça, c'est l'outil natif pour ça
+            ditto -c -k --sequesterRsrc --keepParent $stage $zip
+          } else {
+            # Linux : Compress-Archive perd le bit +x de l'exécutable ; zip -y préserve permissions
+            # et liens symboliques (et garde le dossier "Servo-Skull" comme racine de l'archive)
+            $zipAbs = Join-Path (Get-Location) $zip
+            Push-Location (Split-Path $stage -Parent)
+            zip -ry $zipAbs (Split-Path $stage -Leaf)
+            Pop-Location
+          }
           "path=$zip" >> $env:GITHUB_OUTPUT
 
-      - name: Publier la Release GitHub
-        if: steps.existing.outputs.exists == 'false'
+      - name: Attacher le zip à la Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          gh release create "${{ steps.version.outputs.tag }}"
-          "${{ steps.zip.outputs.path }}"
-          --title "Servo-Skull ${{ steps.version.outputs.version }}"
-          --generate-notes
+        run: gh release upload "${{ needs.prepare.outputs.tag }}" "${{ steps.zip.outputs.path }}"

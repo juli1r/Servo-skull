@@ -18,7 +18,6 @@ pip install -r requirements.txt pyinstaller || goto :err
 for /f %%v in ('python -c "import sys; sys.path.insert(0,'app'); from core import VERSION; print(VERSION)"') do set "VER=%%v"
 rem Dossier (onedir) plutot qu'un seul exe : beaucoup moins de faux positifs antivirus et demarrage plus rapide.
 pyinstaller --noconfirm --onedir --windowed --name Servo-Skull --paths app ^
-  --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32 ^
   --add-data "app\recap_template.html;." --add-data "app\assets;assets" --add-data "app\data;data" --icon "app\assets\servo-skull.ico" ^
   app\main.py || goto :err
 copy /y LISEZMOI.md dist\Servo-Skull\LISEZMOI.md >nul

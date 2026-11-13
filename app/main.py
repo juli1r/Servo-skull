@@ -126,7 +126,10 @@ def main():
         start_error = str(e)
 
     _ensure_shortcuts()
-    ui = Overlay(cfg, save_cfg, lambda ui: Controller(cfg, client, make_screenshotter(), ui))
+    ui = Overlay(cfg, save_cfg, lambda ui_: Controller(
+        cfg, client,
+        make_screenshotter(on_capture_scope=lambda found: ui_.emit("capture_scope", {"found": found})),
+        ui_))
     if start_error:
         ui.emit("error", start_error)
     if unfinished:

@@ -8,12 +8,19 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 import urllib.error
 import urllib.request
 
 REPO = "juli1r/Servo-skull"
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
-ASSET_RE = re.compile(r"^Servo-Skull-.*-windows\.zip$")
+
+_PLATFORM_SUFFIX = {"win32": "windows", "darwin": "macos", "linux": "linux"}
+
+
+def _asset_name_re(platform: str) -> re.Pattern:
+    suffix = _PLATFORM_SUFFIX.get(platform, _PLATFORM_SUFFIX["win32"])
+    return re.compile(rf"^Servo-Skull-.*-{suffix}\.zip$")
 
 
 def check(current: str, timeout: float = 5) -> dict | None:
@@ -30,7 +37,8 @@ def check(current: str, timeout: float = 5) -> dict | None:
     remote = tag[1:] if tag.startswith("v") else tag
     if not remote or remote <= current:
         return None
-    asset = next((a for a in data.get("assets") or [] if ASSET_RE.match(a.get("name") or "")), None)
+    asset_re = _asset_name_re(sys.platform)
+    asset = next((a for a in data.get("assets") or [] if asset_re.match(a.get("name") or "")), None)
     if not asset:
         return None
     return {"version": remote, "url": data.get("html_url") or f"https://github.com/{REPO}/releases",

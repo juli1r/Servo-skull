@@ -218,7 +218,8 @@ class Overlay:
         if hasattr(self, "alert") and self.alert.winfo_exists() and self.alert.winfo_ismapped():
             return AMBER, True
         if getattr(self, "_update_info", None) or getattr(self, "_unfinished_info", None) \
-           or getattr(self, "_layout_info", None) or getattr(self, "_finish_pending", False):
+           or getattr(self, "_layout_info", None) or getattr(self, "_finish_pending", False) \
+           or getattr(self, "_capture_scope_info", None):
             return AMBER, True
         if getattr(self, "mode", None) == "host":
             return GREEN, False
@@ -352,7 +353,7 @@ class Overlay:
             txt = f"↻ Installation de v{info['version']}… redémarrage dans un instant."
         elif state == "error":
             txt = f"⚠ Échec du téléchargement — clique pour la page de téléchargement de v{info['version']}."
-        elif self_update.is_frozen() and info.get("asset_url"):
+        elif sys.platform == "win32" and self_update.is_frozen() and info.get("asset_url"):
             txt = f"↑ Servo-Skull v{info['version']} disponible — clique pour installer automatiquement"
         else:
             txt = f"↑ Servo-Skull v{info['version']} disponible — clique pour la page de téléchargement"
@@ -371,7 +372,7 @@ class Overlay:
         state = getattr(self, "_update_state", "available")
         if state in ("downloading", "installing"):
             return  # déjà en cours
-        if not (self_update.is_frozen() and info.get("asset_url")):
+        if not (sys.platform == "win32" and self_update.is_frozen() and info.get("asset_url")):
             webbrowser.open(info["url"])  # dev (sources) ou pas de zip exploitable : jamais d'auto-update
             return
 
@@ -422,6 +423,27 @@ class Overlay:
         self._layout_info = None
         if hasattr(self, "lbl_layout") and self.lbl_layout.winfo_exists():
             self.lbl_layout.pack_forget()
+
+    def _capture_scope_label(self, parent, bg=BG):
+        lbl = tk.Label(parent, text="", bg=bg, fg=AMBER, font=FONT, cursor="hand2",
+                       wraplength=330, justify="left", padx=10, pady=4)
+        lbl.bind("<Button-1>", lambda e: self._dismiss_capture_scope())
+        self.lbl_capture_scope = lbl
+        self._apply_capture_scope_banner()
+
+    def _apply_capture_scope_banner(self):
+        info = getattr(self, "_capture_scope_info", None)
+        if info and hasattr(self, "lbl_capture_scope") and self.lbl_capture_scope.winfo_exists():
+            self.lbl_capture_scope.config(
+                text="⚠ Fenêtre Tabletop Simulator non détectée — capture de l'écran entier. "
+                     "Clique pour masquer.")
+            self.lbl_capture_scope.pack(fill="x")
+
+    def _dismiss_capture_scope(self):
+        self._capture_scope_info = None
+        self._capture_scope_dismissed = True
+        if hasattr(self, "lbl_capture_scope") and self.lbl_capture_scope.winfo_exists():
+            self.lbl_capture_scope.pack_forget()
 
     def _build_start(self):
         self._clear()
@@ -501,6 +523,7 @@ class Overlay:
         self._update_label(self.shell, bg=PANEL)
         self._unfinished_label(self.shell, bg=PANEL)
         self._layout_label(self.shell, bg=PANEL)
+        self._capture_scope_label(self.shell, bg=PANEL)
         # ligne d'état : visible seulement s'il y a quelque chose d'important à dire
         self.lbl_status = tk.Label(self.shell, text="", fg=MUTE, bg=PANEL, font=FONT, anchor="w", wraplength=300,
                                    justify="left", padx=12)
@@ -983,6 +1006,15 @@ class Overlay:
         elif ev == "layout_warn":
             self._layout_info = p
             self._apply_layout_banner()
+            self._update_badge()
+            self._relayout()
+        elif ev == "capture_scope":
+            if p.get("found"):
+                self._dismiss_capture_scope()
+                self._capture_scope_dismissed = False  # retrouvée : un futur "non détectée" réaffichera la bannière
+            elif not getattr(self, "_capture_scope_dismissed", False):
+                self._capture_scope_info = p
+                self._apply_capture_scope_banner()
             self._update_badge()
             self._relayout()
         elif ev == "alert" and hasattr(self, "alert"):
