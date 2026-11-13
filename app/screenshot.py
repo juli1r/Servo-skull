@@ -109,9 +109,11 @@ def _tts_rect_x11():
             if name.strip() != "Tabletop Simulator":
                 continue
             geom = win.get_geometry()
-            # translate_coords(root, 0, 0) renvoie déjà la position de win dans l'espace de root :
-            # c'est directement la position absolue sur l'écran, pas besoin de l'inverser.
-            coords = win.translate_coords(root, 0, 0)
+            # root.translate_coords(win, 0, 0) traduit le point (0,0) de l'espace de win vers
+            # l'espace de root : c'est la position absolue de win sur l'écran.
+            # (win.translate_coords(root, 0, 0), utilisé plus tôt, fait l'inverse — la position de
+            # root dans l'espace de win, donc l'opposé de la position absolue — d'où un signe faux.)
+            coords = root.translate_coords(win, 0, 0)
             x, y = coords.x, coords.y
             w_, h_ = geom.width, geom.height
             if w_ < 100 or h_ < 100:
