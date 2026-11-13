@@ -90,14 +90,32 @@ jobs:
         id: zip
         shell: pwsh
         run: |
-          $built = if (Test-Path "dist/Servo-Skull.app") { "dist/Servo-Skull.app" } else { "dist/Servo-Skull" }
           $stage = "release/stage/Servo-Skull"
-          New-Item -ItemType Directory -Force (Split-Path $stage) | Out-Null
-          Copy-Item $built $stage -Recurse -Force
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          if (Test-Path "dist/Servo-Skull.app") {
+            # bundle macOS : il doit rester un dossier *.app à côté des README, jamais renommé ni
+            # "ouvert" (ses README collés à la racine du bundle invalident la signature ad hoc)
+            Copy-Item "dist/Servo-Skull.app" (Join-Path $stage "Servo-Skull.app") -Recurse -Force
+          } else {
+            Copy-Item "dist/Servo-Skull/*" $stage -Recurse -Force
+          }
           Copy-Item LISEZMOI.md (Join-Path $stage "LISEZMOI.md")
           Copy-Item README.md (Join-Path $stage "LISEZ-MOI-D-ABORD.md")
           $zip = "release/Servo-Skull-${{ needs.prepare.outputs.version }}-${{ matrix.suffix }}.zip"
-          Compress-Archive -Path $stage -DestinationPath $zip
+          if ($IsWindows) {
+            Compress-Archive -Path $stage -DestinationPath $zip
+          } elseif ($IsMacOS) {
+            # Compress-Archive perd les liens symboliques du bundle .app (Frameworks/Resources) et
+            # les droits d'exécution Unix : ditto préserve tout ça, c'est l'outil natif pour ça
+            ditto -c -k --sequesterRsrc --keepParent $stage $zip
+          } else {
+            # Linux : Compress-Archive perd le bit +x de l'exécutable ; zip -y préserve permissions
+            # et liens symboliques (et garde le dossier "Servo-Skull" comme racine de l'archive)
+            $zipAbs = Join-Path (Get-Location) $zip
+            Push-Location (Split-Path $stage -Parent)
+            zip -ry $zipAbs (Split-Path $stage -Leaf)
+            Pop-Location
+          }
           "path=$zip" >> $env:GITHUB_OUTPUT
 
       - name: Attacher le zip à la Release
