@@ -70,7 +70,23 @@ def _tts_rect_win32():
 
 
 def _tts_rect_macos():
-    return None  # implémenté au Task 4
+    import Quartz
+
+    options = Quartz.kCGWindowListOptionOnScreenOnly
+    windows = Quartz.CGWindowListCopyWindowInfo(options, Quartz.kCGNullWindowID)
+    for w in windows or []:
+        name = w.get("kCGWindowOwnerName") or w.get("kCGWindowName") or ""
+        if name.strip() != "Tabletop Simulator":
+            continue
+        bounds = w.get("kCGWindowBounds")
+        if not bounds:
+            return None
+        x, y = int(bounds["X"]), int(bounds["Y"])
+        w_, h_ = int(bounds["Width"]), int(bounds["Height"])
+        if w_ < 100 or h_ < 100:
+            return None
+        return x, y, w_, h_
+    return None
 
 
 def _tts_rect_x11():
@@ -88,8 +104,8 @@ def _tts_client_rect():
             if _is_wayland():
                 return None
             return _tts_rect_x11()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[screenshot] détection fenêtre TTS échouée : {e!r}", file=sys.stderr)
     return None
 
 
