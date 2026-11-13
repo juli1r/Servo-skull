@@ -1,11 +1,17 @@
 """Capture d'écran de la fenêtre Tabletop Simulator (Windows), JPEG compressé."""
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 import mss
 from PIL import Image
+
+
+def _is_wayland(env=None) -> bool:
+    env = os.environ if env is None else env
+    return env.get("XDG_SESSION_TYPE") == "wayland" or "WAYLAND_DISPLAY" in env
 
 
 def enable_dpi_awareness():
