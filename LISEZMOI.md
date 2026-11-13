@@ -10,8 +10,9 @@ Ton adversaire ne voit rien : aucune interface, aucun script ni objet n'est ajou
 
 Ces deux plateformes sont nouvelles et pas testées sur du vrai matériel — seule la CI confirme
 que ça build, pas qu'elles tournent réellement en jeu. En particulier :
-- **Lancement :** pas de `lancer.bat` ici. **Linux :** lance `./Servo-Skull/Servo-Skull` depuis le
-  dossier dézippé. **Mac :** ouvre `Servo-Skull.app`.
+- **Lancement :** pas de `lancer.bat` ici. **Linux :** depuis le dossier où tu as extrait le zip,
+  lance `./Servo-Skull/Servo-Skull` (si ça ne démarre pas, essaie d'abord `chmod +x Servo-Skull/Servo-Skull` —
+  certains gestionnaires d'archives perdent le droit d'exécution). **Mac :** ouvre `Servo-Skull.app`.
 - **Pas de raccourcis clavier F8/F9** sur Mac/Linux pour l'instant (ils sont encore affichés sur
   les boutons, ignore la mention) : utilise directement les boutons **Capturer**/**Fin de phase**
   dans l'overlay.
