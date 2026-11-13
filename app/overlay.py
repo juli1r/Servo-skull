@@ -1009,9 +1009,7 @@ class Overlay:
             self._relayout()
         elif ev == "capture_scope":
             if p.get("found"):
-                self._capture_scope_info = None
-                if hasattr(self, "lbl_capture_scope") and self.lbl_capture_scope.winfo_exists():
-                    self.lbl_capture_scope.pack_forget()
+                self._dismiss_capture_scope()
             else:
                 self._capture_scope_info = p
                 self._apply_capture_scope_banner()
