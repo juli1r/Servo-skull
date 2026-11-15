@@ -382,8 +382,53 @@ class Overlay:
         def run():
             ok = self_update.apply(info["asset_url"], info.get("asset_size"), on_status)
             if ok:
-                self.root.after(0, self.quit)
+                self.root.after(0, self._quit_for_update)
         threading.Thread(target=run, daemon=True).start()
+
+    def _update_status(self, text):
+        """Petite fenêtre de statut indépendante de l'overlay normal, affichée pendant
+        toute la phase d'installation/finalisation/relance d'une mise à jour — reste
+        visible même après root.withdraw() (seule la fenêtre racine est masquée)."""
+        if not getattr(self, "_update_win", None) or not self._update_win.winfo_exists():
+            self._update_win = tk.Toplevel(self.root, bg=BG, padx=24, pady=18)
+            self._update_win.title("Servo-Skull")
+            self._update_win.attributes("-topmost", True)
+            self._update_lbl = tk.Label(self._update_win, text="", bg=BG, fg=CYAN, font=FONT_B)
+            self._update_lbl.pack()
+        self._update_lbl.config(text=text)
+        self._update_win.update_idletasks()
+
+    def _wait_update_threads(self):
+        threads = getattr(self.ctl, "pending_threads", [])
+        if any(t.is_alive() for t in threads):
+            self.root.after(300, self._wait_update_threads)
+            return
+        self._update_status("↻ Redémarrage…")
+        self.root.after(600, self.root.destroy)
+
+    def _quit_for_update(self):
+        """Comme quit(), mais garde une fenêtre de statut visible le temps que le
+        rangement de fin de partie (threads non-daemon : rendu GIF, export, envoi de
+        contribution) se termine, au lieu de fermer sans explication pendant que le
+        script de relais de la mise à jour attend que l'exe se libère."""
+        try:
+            self.cfg["overlay_geometry"] = f"+{self.root.winfo_x()}+{self.root.winfo_y()}"
+            self.save_cfg(self.cfg)
+        except Exception:
+            pass
+        if getattr(self, "_hotkey_tid", None) and sys.platform == "win32":
+            import ctypes
+            ctypes.windll.user32.PostThreadMessageW(self._hotkey_tid, 0x0012, 0, 0)
+        self.root.withdraw()
+        self._update_status("↻ Mise à jour en cours…")
+        if self.ctl.session and self.ctl.session.game["captures"]:
+            self._update_status("↻ Finalisation de la partie…")
+            self.ctl.finish_session()
+            self._wait_update_threads()
+        else:
+            self.ctl.stop_watch()
+            self._update_status("↻ Redémarrage…")
+            self.root.after(600, self.root.destroy)
 
     def _unfinished_label(self, parent, bg=BG):
         lbl = tk.Label(parent, text="", bg=bg, fg=AMBER, font=FONT, cursor="hand2",

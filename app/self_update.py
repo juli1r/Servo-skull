@@ -86,7 +86,11 @@ def _download(url: str, dest: Path, total: int | None, on_status: Callable[[str,
 
 
 def _bat_script(src: Path, app_dir: Path, exe: Path) -> str:
-    # attend jusqu'à ~10 s que l'exe précédent se libère avant de copier par-dessus
+    # attend jusqu'à 10 min que l'exe précédent se libère avant de copier par-dessus :
+    # une partie en cours au moment du clic déclenche des rangements de fin de partie
+    # (rendu GIF, export, envoi de contribution) dans des threads non-daemon qui gardent
+    # le process vivant bien après la fermeture de la fenêtre — il ne faut jamais copier
+    # par-dessus des fichiers encore verrouillés, sous peine de relancer l'ancien exe
     return f"""@echo off
 setlocal
 set TRIES=0
@@ -94,7 +98,7 @@ set TRIES=0
 tasklist /fi "imagename eq {exe.name}" | find /i "{exe.name}" >nul
 if %errorlevel%==0 (
   set /a TRIES+=1
-  if %TRIES% lss 20 (
+  if %TRIES% lss 600 (
     timeout /t 1 /nobreak >nul
     goto wait
   )

@@ -47,6 +47,7 @@ class Controller:
         self._lock = threading.Lock()  # une capture à la fois
         self._stop = threading.Event()
         self._thread = None
+        self.pending_threads: list[threading.Thread] = []
         client.on_game_saved = self.on_game_saved
         client.on_custom = self._on_custom
         self._events: "queue.Queue[dict]" = queue.Queue()
@@ -249,6 +250,10 @@ class Controller:
                 pass
         sess = self.session
         self.session = None
+        # suivies par overlay._quit_for_update() pour savoir quand le rangement de fin
+        # de partie est vraiment terminé (threads non-daemon : le process reste vivant
+        # tant qu'ils tournent, même après la fermeture de la fenêtre)
+        self.pending_threads: list[threading.Thread] = []
 
         def export_film():  # fil non « daemon » : collect() est déjà appelé une fois par recap.build()
             try:                                                   # ci-dessus ; ne pas le refaire sur le thread Tk
@@ -258,7 +263,9 @@ class Controller:
                     (sess.dir / "cogitator-film-erreur.txt").write_text(str(e), encoding="utf-8")
                 except OSError:
                     pass
-        threading.Thread(target=export_film, daemon=False).start()
+        t_film = threading.Thread(target=export_film, daemon=False)
+        self.pending_threads.append(t_film)
+        t_film.start()
 
         def make_gif():  # fil non « daemon » : le programme attend la fin du GIF avant de se fermer
             try:
@@ -272,7 +279,9 @@ class Controller:
                 except OSError:
                     pass
         if self.cfg.get("auto_gif", True):
-            threading.Thread(target=make_gif, daemon=False).start()
+            t_gif = threading.Thread(target=make_gif, daemon=False)
+            self.pending_threads.append(t_gif)
+            t_gif.start()
 
         def make_contribution():  # fichier local seulement si accepté ; envoi seulement si accepté à part
             try:
@@ -291,7 +300,9 @@ class Controller:
             elif self.cfg.get("envoi") != "non":
                 self.emit("ask_send", {"dir": str(sess.dir)})
         if self.cfg.get("contribution") == "oui":
-            threading.Thread(target=make_contribution, daemon=False).start()
+            t_contrib = threading.Thread(target=make_contribution, daemon=False)
+            self.pending_threads.append(t_contrib)
+            t_contrib.start()
         return out
 
     def send_game(self, folder: str):
