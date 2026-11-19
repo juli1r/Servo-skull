@@ -177,19 +177,24 @@ def _resolve_ungrouped(pending_units, result, allu, lines, tints, pos_vote, doub
         scores = {}
         for g, u in pending.items():
             sc = {"Red": 0.0, "Blue": 0.0}
-            k = tk(g)
-            if k:
-                r, b = by_tint["Red"][k], by_tint["Blue"][k]
-                if r + b:
-                    sc["Red"] += 4 * r / (r + b)
-                    sc["Blue"] += 4 * b / (r + b)
-            lw = 0
-            for l in sorted(lines.get(g, ())):
-                r, b = by_line["Red"][l], by_line["Blue"][l]
-                if r + b and lw < 6:
-                    sc["Red"] += 3 * r / (r + b)
-                    sc["Blue"] += 3 * b / (r + b)
-                    lw += 3
+            if has_groups:  # ancrage par règle d'armée déjà établi ailleurs : signal fiable.
+                # En miroir (has_groups=False), règles et teinte sont partagées par les deux
+                # camps ; les ignorer évite qu'un biais de traitement sur quelques unités ne
+                # s'auto-renforce et n'écrase la position (seul signal fiable en miroir, cf.
+                # docstring infer_sides) jusqu'à faire converger tout le plateau vers un camp.
+                k = tk(g)
+                if k:
+                    r, b = by_tint["Red"][k], by_tint["Blue"][k]
+                    if r + b:
+                        sc["Red"] += 4 * r / (r + b)
+                        sc["Blue"] += 4 * b / (r + b)
+                lw = 0
+                for l in sorted(lines.get(g, ())):
+                    r, b = by_line["Red"][l], by_line["Blue"][l]
+                    if r + b and lw < 6:
+                        sc["Red"] += 3 * r / (r + b)
+                        sc["Blue"] += 3 * b / (r + b)
+                        lw += 3
             side, w = pos_vote(u)
             sc[side] += w
             scores[g] = sc
